@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}{{ school_class }} - {{ subject }}{% endblock %}
+{% block content %}
+<h1 class="h5 mb-1">{{ school_class }} · {{ subject }}</h1>
+<p class="text-muted">
+    {{ date|date:"d.m.Y." }}
+    {% if lesson %} · {{ lesson.teacher.get_full_name|default:lesson.teacher.username }}{% endif %}
+</p>
+
+<form method="post" action="{{ save_url }}">
+    {% csrf_token %}
+    {% if is_new %}
+        <input type="hidden" name="razred" value="{{ school_class.id }}">
+        <input type="hidden" name="predmet" value="{{ subject.id }}">
+        <input type="hidden" name="datum" value="{{ date|date:'Y-m-d' }}">
+    {% endif %}
+
+    <div class="mb-3">
+        <label class="form-label fw-bold">Tema sata</label>
+        <input type="text" name="tema" value="{{ lesson.topic|default:'' }}" placeholder="npr. Pitagorin poučak">
+    </div>
+
+    <div class="mb-4">
+        <label class="form-label fw-bold">Opća bilješka (za cijeli sat)</label>
+        {% if general_note.editable %}
+            <textarea name="opca_biljeska" rows="2" placeholder="Napomena o satu (nije vezana uz pojedinog učenika)">{{ general_note.text }}</textarea>
+        {% else %}
+            <div class="alert alert-secondary small mb-0">
+                {{ general_note.text|linebreaksbr }}
+                <div class="mt-1"><em>Autor: {{ general_note.author }} ({{ general_note.updated_at|date:"d.m.Y. H:i" }}) - ne možete uređivati tuđu bilješku.</em></div>
+            </div>
+        {% endif %}
+    </div>
+
+    <h2 class="h6">Učenici ({{ rows|length }})</h2>
+    <div class="list-group mb-4">
+        {% for row in rows %}
+        <div class="list-group-item"
+             x-data="{
+                status: '{{ row.status }}',
+                justified: '{% if row.justified == True %}true{% elif row.justified == False %}false{% else %}{% endif %}',
+                showNote: {% if row.note.text %}true{% else %}false{% endif %}
+             }">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <strong>{{ row.student.full_name }}</strong>
+                    {% if row.student.is_ip %}<span class="badge badge-ip">IP</span>{% endif %}
+                    {% if row.student.is_pp %}<span class="badge badge-pp">PP</span>{% endif %}
+                </div>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-sm"
+                            :class="status=='{{ attendance_present }}' ? 'btn-success' : 'btn-outline-success'"
+                            @click="status='{{ attendance_present }}'">Prisutan</button>
+                    <button type="button" class="btn btn-sm"
+                            :class="status=='{{ attendance_late }}' ? 'btn-warning' : 'btn-outline-warning'"
+                            @click="status='{{ attendance_late }}'">Kasni</button>
+                    <button type="button" class="btn btn-sm"
+                            :class="status=='{{ attendance_absent }}' ? 'btn-danger' : 'btn-outline-danger'"
+                            @click="status='{{ attendance_absent }}'">Odsutan</button>
+                </div>
+            </div>
+            <input type="hidden" name="status_{{ row.student.id }}" x-model="status">
+
+            {% if can_set_justified %}
+            <div class="mt-2" x-show="status=='{{ attendance_absent }}'" x-cloak>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn" :class="justified=='true' ? 'btn-success' : 'btn-outline-success'" @click="justified='true'">Opravdano</button>
+                    <button type="button" class="btn" :class="justified=='false' ? 'btn-danger' : 'btn-outline-danger'" @click="justified='false'">Neopravdano</button>
+                </div>
+                <input type="hidden" name="justified_{{ row.student.id }}" x-model="justified">
+            </div>
+            {% elif row.justified is not None %}
+            <div class="mt-2 small text-muted" x-show="status=='{{ attendance_absent }}'" x-cloak>
+                {% if row.justified %}Opravdano{% else %}Neopravdano{% endif %} (postavlja razrednik/admin)
+            </div>
+            {% endif %}
+
+            <div class="mt-2">
+                <button type="button" class="btn btn-link btn-sm p-0" @click="showNote = !showNote">Bilješka</button>
+                <div x-show="showNote" x-cloak>
+                    {% if row.note.editable %}
+                        <textarea name="note_{{ row.student.id }}" class="mt-1" rows="2" placeholder="Bilješka za ovog učenika">{{ row.note.text }}</textarea>
+                    {% else %}
+                        <div class="alert alert-secondary small mt-1 mb-0">
+                            {{ row.note.text|linebreaksbr }}
+                            <div class="mt-1"><em>Autor: {{ row.note.author }} - ne možete uređivati tuđu bilješku.</em></div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-lg-block">Spremi</button>
+</form>
+{% endblock %}
