@@ -60,13 +60,23 @@ class StudentAdmin(admin.ModelAdmin):
         "last_name",
         "first_name",
         "school_class",
+        "group_label",
         "is_ip",
         "is_pp",
         "is_archived",
     )
     list_display_links = ("last_name", "first_name")
-    list_filter = ("school_class__school_year", "school_class", "is_ip", "is_pp", "is_archived")
+    list_editable = ("group_label",)
+    list_filter = (
+        "school_class__school_year",
+        "school_class",
+        "group_label",
+        "is_ip",
+        "is_pp",
+        "is_archived",
+    )
     search_fields = ("first_name", "last_name")
+    actions = ["postavi_grupu_a", "postavi_grupu_b", "ukloni_iz_grupe"]
 
     @admin.display(description=constants.IP_LABEL, boolean=True)
     def is_ip(self, obj):
@@ -75,6 +85,18 @@ class StudentAdmin(admin.ModelAdmin):
     @admin.display(description=constants.PP_LABEL, boolean=True)
     def is_pp(self, obj):
         return obj.is_pp
+
+    @admin.action(description="Postavi odabrane u grupu A")
+    def postavi_grupu_a(self, request, queryset):
+        queryset.update(group_label="A")
+
+    @admin.action(description="Postavi odabrane u grupu B")
+    def postavi_grupu_b(self, request, queryset):
+        queryset.update(group_label="B")
+
+    @admin.action(description="Ukloni odabrane iz grupe (cijeli razred)")
+    def ukloni_iz_grupe(self, request, queryset):
+        queryset.update(group_label="")
 
 
 class AttendanceInline(admin.TabularInline):

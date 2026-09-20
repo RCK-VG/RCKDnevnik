@@ -7,8 +7,23 @@
     {% if lesson %} · {{ lesson.teacher.get_full_name|default:lesson.teacher.username }}{% endif %}
 </p>
 
+{% if group_label %}
+<div class="alert alert-info py-2">
+    Prikazana je samo <strong>Grupa {{ group_label }}</strong> ({{ rows|length }} učenika).
+    {% if lesson %}<a href="{% url 'sat' pk=lesson.id %}">Prikaži cijeli razred</a>{% endif %}
+</div>
+{% elif has_groups and lesson %}
+<div class="mb-3">
+    <span class="small text-muted">Ovaj razred ima grupe:</span>
+    {% for code, label in group_choices %}
+        <a href="{% url 'sat' pk=lesson.id %}?grupa={{ code }}" class="btn btn-outline-secondary btn-sm">{{ label }}</a>
+    {% endfor %}
+</div>
+{% endif %}
+
 <form method="post" action="{{ save_url }}">
     {% csrf_token %}
+    <input type="hidden" name="grupa" value="{{ group_label }}">
     {% if is_new %}
         <input type="hidden" name="razred" value="{{ school_class.id }}">
         <input type="hidden" name="predmet" value="{{ subject.id }}">

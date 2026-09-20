@@ -15,6 +15,11 @@
         <label class="form-label">{{ form.datum.label }}</label>
         {{ form.datum }}
     </div>
+    <div class="mb-3">
+        <label class="form-label">{{ form.grupa.label }}</label>
+        {{ form.grupa }}
+        <div class="form-text">Odaberi samo ako se ovaj sat drži po grupama (npr. praktikum).</div>
+    </div>
     <button type="submit" class="btn btn-primary btn-lg-block">Otvori sat</button>
 </form>
 {% endblock %}

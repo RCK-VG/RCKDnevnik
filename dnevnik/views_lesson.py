@@ -9,6 +9,12 @@ from .forms import LessonPickerForm
 from .models import Lesson, Student
 from .permissions import can_edit_lesson, can_edit_note, can_set_justified
 
+VALID_GROUP_LABELS = {code for code, _ in constants.GROUP_CHOICES}
+
+
+def _clean_group_label(raw):
+    return raw if raw in VALID_GROUP_LABELS else ""
+
 
 @login_required
 def izbor_sata(request):
@@ -27,18 +33,19 @@ def otvori_sat(request):
     school_class = form.cleaned_data["razred"]
     subject = form.cleaned_data["predmet"]
     date = form.cleaned_data["datum"]
+    group_label = _clean_group_label(form.cleaned_data.get("grupa", ""))
 
     lesson = Lesson.objects.filter(
         school_class=school_class, subject=subject, date=date, teacher=request.user
     ).first()
     if lesson:
-        return redirect("sat", pk=lesson.id)
+        return _redirect_to_sat(lesson.id, group_label)
 
     if request.method == "POST":
-        lesson = _save_lesson(request, None, school_class, subject, date)
-        return redirect("sat", pk=lesson.id)
+        lesson = _save_lesson(request, None, school_class, subject, date, group_label)
+        return _redirect_to_sat(lesson.id, group_label)
 
-    return _render_sat_screen(request, None, school_class, subject, date)
+    return _render_sat_screen(request, None, school_class, subject, date, group_label)
 
 
 @login_required
@@ -50,13 +57,31 @@ def sat(request, pk):
         raise PermissionDenied("Ne možete uređivati tuđi nastavni sat.")
 
     if request.method == "POST":
-        _save_lesson(request, lesson, lesson.school_class, lesson.subject, lesson.date)
-        return redirect("sat", pk=lesson.id)
+        group_label = _clean_group_label(request.POST.get("grupa", ""))
+        _save_lesson(request, lesson, lesson.school_class, lesson.subject, lesson.date, group_label)
+        return _redirect_to_sat(lesson.id, group_label)
 
-    return _render_sat_screen(request, lesson, lesson.school_class, lesson.subject, lesson.date)
+    group_label = _clean_group_label(request.GET.get("grupa", ""))
+    return _render_sat_screen(
+        request, lesson, lesson.school_class, lesson.subject, lesson.date, group_label
+    )
 
 
-def _save_lesson(request, lesson, school_class, subject, date):
+def _redirect_to_sat(lesson_id, group_label):
+    url = reverse("sat", kwargs={"pk": lesson_id})
+    if group_label:
+        url += f"?grupa={group_label}"
+    return redirect(url)
+
+
+def _group_students(school_class, group_label):
+    students = Student.objects.filter(school_class=school_class, is_archived=False)
+    if group_label:
+        students = students.filter(group_label=group_label)
+    return students
+
+
+def _save_lesson(request, lesson, school_class, subject, date, group_label):
     topic = request.POST.get("tema", "").strip()
 
     if lesson is None:
@@ -71,7 +96,9 @@ def _save_lesson(request, lesson, school_class, subject, date):
         lesson.topic = topic
         lesson.save(update_fields=["topic", "updated_at"])
 
-    students = Student.objects.filter(school_class=school_class, is_archived=False)
+    # Only touch students in the selected group - attendance/notes already
+    # recorded for the rest of the class (the other group) must stay as-is.
+    students = _group_students(school_class, group_label)
     for student in students:
         status = request.POST.get(f"status_{student.id}", constants.ATTENDANCE_PRESENT)
         justified_raw = request.POST.get(f"justified_{student.id}", "")
@@ -98,10 +125,10 @@ def _note_context(note, user):
     }
 
 
-def _render_sat_screen(request, lesson, school_class, subject, date):
+def _render_sat_screen(request, lesson, school_class, subject, date, group_label=""):
     from .models import Attendance, Note
 
-    students = Student.objects.filter(school_class=school_class, is_archived=False)
+    students = _group_students(school_class, group_label)
 
     attendance_by_student = {}
     notes_by_student = {}
@@ -138,6 +165,10 @@ def _render_sat_screen(request, lesson, school_class, subject, date):
     else:
         save_url = reverse("otvori_sat")
 
+    has_groups = Student.objects.filter(
+        school_class=school_class, is_archived=False
+    ).exclude(group_label="").exists()
+
     context = {
         "lesson": lesson,
         "is_new": lesson is None,
@@ -152,5 +183,8 @@ def _render_sat_screen(request, lesson, school_class, subject, date):
         "attendance_present": constants.ATTENDANCE_PRESENT,
         "attendance_absent": constants.ATTENDANCE_ABSENT,
         "attendance_late": constants.ATTENDANCE_LATE,
+        "group_label": group_label,
+        "group_choices": constants.GROUP_CHOICES,
+        "has_groups": has_groups,
     }
     return render(request, "dnevnik/sat.html", context)

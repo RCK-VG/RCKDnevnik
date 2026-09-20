@@ -14,3 +14,11 @@ ATTENDANCE_STATUS_CHOICES = [
     (ATTENDANCE_ABSENT, "Odsutan"),
     (ATTENDANCE_LATE, "Kasni"),
 ]
+
+# Optional split of a class into groups (e.g. a practical/lab subject taught
+# to half the class at a time). Add more letters here if a school ever needs
+# more than two groups - it's just a plain choices list.
+GROUP_CHOICES = [
+    ("A", "Grupa A"),
+    ("B", "Grupa B"),
+]

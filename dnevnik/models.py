@@ -65,6 +65,14 @@ class Student(models.Model):
     is_ip = models.BooleanField(default=False, verbose_name=constants.IP_LABEL)
     is_pp = models.BooleanField(default=False, verbose_name=constants.PP_LABEL)
     is_archived = models.BooleanField(default=False)
+    group_label = models.CharField(
+        max_length=1,
+        choices=constants.GROUP_CHOICES,
+        blank=True,
+        default="",
+        verbose_name="Grupa",
+        help_text="Za satove koji se dijele u grupe (npr. praktikum).",
+    )
 
     class Meta:
         ordering = ["last_name", "first_name"]

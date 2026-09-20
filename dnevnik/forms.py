@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm
 from django.utils import timezone
 
+from . import constants
 from .models import SchoolClass, Subject
 
 FORMAT_CHOICES = [("xlsx", "Excel (.xlsx)"), ("csv", "CSV (za Excel, ; razdjelnik)")]
@@ -107,4 +108,9 @@ class LessonPickerForm(forms.Form):
         label="Datum",
         initial=timezone.localdate,
         widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    grupa = forms.ChoiceField(
+        label="Grupa",
+        choices=[("", "Cijeli razred")] + list(constants.GROUP_CHOICES),
+        required=False,
     )
