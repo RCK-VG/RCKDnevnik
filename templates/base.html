@@ -30,6 +30,7 @@
         <div class="container-fluid">
             <a class="navbar-brand" href="{% url 'pocetna' %}">Mali e-Dnevnik</a>
             <div class="d-flex align-items-center gap-3">
+                <a href="{% url 'razredi' %}" class="text-light small text-decoration-none">Razredi</a>
                 <span class="text-light small">{{ user.get_full_name|default:user.username }}</span>
                 <form method="post" action="{% url 'odjava' %}" class="m-0">
                     {% csrf_token %}

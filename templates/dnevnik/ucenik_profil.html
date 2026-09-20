@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}{{ student.full_name }}{% endblock %}
+{% block content %}
+<h1 class="h5 mb-1">
+    {{ student.full_name }}
+    {% if student.is_ip %}<span class="badge badge-ip">IP</span>{% endif %}
+    {% if student.is_pp %}<span class="badge badge-pp">PP</span>{% endif %}
+</h1>
+<p class="text-muted">
+    <a href="{% url 'razred_detalj' pk=student.school_class.id %}">{{ student.school_class }}</a>
+</p>
+
+<form method="get" class="card card-body mb-3">
+    <div class="row g-2">
+        <div class="col-12 col-sm-4">
+            <label class="form-label small">{{ filter_form.predmet.label }}</label>
+            {{ filter_form.predmet }}
+        </div>
+        <div class="col-6 col-sm-4">
+            <label class="form-label small">{{ filter_form.datum_od.label }}</label>
+            {{ filter_form.datum_od }}
+        </div>
+        <div class="col-6 col-sm-4">
+            <label class="form-label small">{{ filter_form.datum_do.label }}</label>
+            {{ filter_form.datum_do }}
+        </div>
+    </div>
+    <button type="submit" class="btn btn-outline-primary btn-sm mt-3">Filtriraj</button>
+</form>
+
+<div class="row g-2 mb-4 text-center">
+    <div class="col-3">
+        <div class="card card-body p-2">
+            <div class="fs-4 fw-bold">{{ summary.odsutan }}</div>
+            <div class="small text-muted">Izostanci</div>
+        </div>
+    </div>
+    <div class="col-3">
+        <div class="card card-body p-2">
+            <div class="fs-4 fw-bold text-success">{{ summary.opravdano }}</div>
+            <div class="small text-muted">Opravdano</div>
+        </div>
+    </div>
+    <div class="col-3">
+        <div class="card card-body p-2">
+            <div class="fs-4 fw-bold text-danger">{{ summary.neopravdano }}</div>
+            <div class="small text-muted">Neopravdano</div>
+        </div>
+    </div>
+    <div class="col-3">
+        <div class="card card-body p-2">
+            <div class="fs-4 fw-bold text-warning">{{ summary.kasni }}</div>
+            <div class="small text-muted">Kasni</div>
+        </div>
+    </div>
+</div>
+
+<h2 class="h6">Povijest prisutnosti</h2>
+<div class="table-responsive mb-4">
+    <table class="table table-sm table-striped">
+        <thead>
+            <tr><th>Datum</th><th>Predmet</th><th>Tema sata</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+        {% for a in attendance_list %}
+            <tr>
+                <td>{{ a.lesson.date|date:"d.m.Y." }}</td>
+                <td>{{ a.lesson.subject }}</td>
+                <td>{{ a.lesson.topic }}</td>
+                <td>
+                    {% if a.status == "prisutan" %}Prisutan
+                    {% elif a.status == "kasni" %}Kasni
+                    {% elif a.status == "odsutan" %}
+                        Odsutan
+                        {% if a.justified == True %}(opravdano){% elif a.justified == False %}(neopravdano){% else %}(nije određeno){% endif %}
+                    {% endif %}
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="4" class="text-muted">Nema zapisa prisutnosti za odabrani filter.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<h2 class="h6">Bilješke</h2>
+<div class="list-group mb-4">
+    {% for note in notes %}
+    <div class="list-group-item">
+        <div class="d-flex justify-content-between">
+            <strong>{{ note.lesson.date|date:"d.m.Y." }} - {{ note.lesson.subject }}</strong>
+            <span class="text-muted small">{{ note.author.get_full_name|default:note.author.username }}</span>
+        </div>
+        {% if note.lesson.topic %}<div class="small text-muted">Tema: {{ note.lesson.topic }}</div>{% endif %}
+        <div>{{ note.text|linebreaksbr }}</div>
+        <div class="small text-muted">Uneseno: {{ note.created_at|date:"d.m.Y. H:i" }}{% if note.updated_at != note.created_at %}, izmijenjeno: {{ note.updated_at|date:"d.m.Y. H:i" }}{% endif %}</div>
+    </div>
+    {% empty %}
+    <p class="text-muted">Nema bilješki za odabrani filter.</p>
+    {% endfor %}
+</div>
+{% endblock %}

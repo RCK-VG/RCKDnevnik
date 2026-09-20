@@ -23,6 +23,21 @@ class FileImportForm(forms.Form):
     )
 
 
+class ReviewFilterForm(forms.Form):
+    predmet = forms.ModelChoiceField(
+        label="Predmet",
+        queryset=Subject.objects.filter(is_archived=False),
+        required=False,
+        empty_label="Svi predmeti",
+    )
+    datum_od = forms.DateField(
+        label="Od datuma", required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+    datum_do = forms.DateField(
+        label="Do datuma", required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+
+
 class LessonPickerForm(forms.Form):
     razred = forms.ModelChoiceField(
         label="Razred",
