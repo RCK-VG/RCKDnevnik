@@ -7,6 +7,8 @@ samo interni alat za lakše vođenje evidencije i izvoz podataka za školu.
 
 Ovaj README je pisan za osobu koja nije programer. Prati korake redom.
 
+Repozitorij: https://github.com/RCK-VG/RCKDnevnik
+
 ## Sadržaj
 
 1. [Preduvjeti](#1-preduvjeti)
@@ -58,8 +60,16 @@ računala, bez potrebe za domenom ili internetom.
 
 ### Korak 1: Preuzmite projekt
 
-Kopirajte cijelu projektnu mapu na računalo koje će služiti kao server
-(može biti isto računalo na kojem sad čitate ovaj README).
+Na računalu/Raspberry Pi-ju koje će služiti kao server (mora imati git
+instaliran - na Raspberry Pi OS-u je već ugrađen):
+
+```bash
+git clone https://github.com/RCK-VG/RCKDnevnik.git dnevnik
+cd dnevnik
+```
+
+Ako git nije dostupan, alternativa je da cijelu projektnu mapu ručno
+kopirate (npr. preko `scp` ili USB-a) na to računalo.
 
 ### Korak 2: Podesite postavke
 
@@ -204,8 +214,12 @@ Prijavite se na VPS preko SSH-a i instalirajte Docker (vidi [poglavlje 1](#1-pre
 
 ### Korak 3: Prebacite projekt na VPS
 
-Kopirajte projektnu mapu na VPS (npr. preko `git clone` ako je u
-repozitoriju, ili `scp -r` sa svog računala).
+Prijavljeni na VPS preko SSH-a:
+
+```bash
+git clone https://github.com/RCK-VG/RCKDnevnik.git dnevnik
+cd dnevnik
+```
 
 ### Korak 4: (Opcionalno) Usmjerite domenu
 
@@ -257,14 +271,17 @@ docker compose -f docker-compose.prod.yml exec web python manage.py createsuperu
 
 ## 6. Ažuriranje aplikacije
 
-Kad dobijete noviju verziju koda (npr. novu funkcionalnost):
+Kad dobijete noviju verziju koda (npr. novu funkcionalnost), u mapi
+projekta na serveru:
 
-1. Zamijenite datoteke projekta novima (ili `git pull` ako koristite git).
-2. Ponovno izgradite i pokrenite:
-   ```bash
-   docker compose up -d --build
-   ```
-   (uz `-f docker-compose.prod.yml` za Varijantu B).
+```bash
+git pull
+docker compose up -d --build
+```
+(uz `-f docker-compose.prod.yml` za Varijantu B).
+
+Ako niste preuzeli projekt preko gita, ručno zamijenite datoteke projekta
+novima prije pokretanja `docker compose up -d --build`.
 
 Migracije baze podataka se pokreću **automatski** pri svakom pokretanju,
 tako da ne morate ništa ručno raditi s bazom.
