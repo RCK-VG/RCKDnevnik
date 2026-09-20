@@ -1,12 +1,17 @@
 # Varijanta A: lokalno u skolskoj mrezi (bez domene, pristup preko IP adrese).
 # Pokretanje: docker compose up -d --build
+#
+# Ako na istom uredaju vec radi neki drugi program, promijenite BROJ ISPRED
+# dvotocke ("host port") u nesto slobodno, npr. "8080:8000" - aplikacija ce
+# tada biti dostupna na http://<IP-adresa>:8080. Broj IZA dvotocke (8000)
+# ostaje isti jer je to port unutar samog kontejnera.
 services:
   web:
     build: .
     restart: unless-stopped
     env_file: .env
     ports:
-      - "8000:8000"
+      - "8080:8000"
     volumes:
       - ./data:/app/data
       - ./backups:/app/backups

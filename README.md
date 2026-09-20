@@ -100,12 +100,20 @@ Baza podataka i migracije se postavljaju automatski.
 Na bilo kojem računalu/mobitelu u istoj školskoj mreži otvorite preglednik na:
 
 ```
-http://<IP-adresa-servera>:8000
+http://<IP-adresa-servera>:8080
 ```
 
-npr. `http://192.168.1.50:8000`. Ako se ne može spojiti, provjerite da
-Windows Defender Firewall (ili drugi firewall) dopušta dolazne veze na
-port 8000.
+npr. `http://192.168.1.50:8080`. Ako se ne može spojiti, provjerite da
+firewall (Windows Defender Firewall, ili `ufw` na Linuxu/Raspberry Pi-ju)
+dopušta dolazne veze na taj port.
+
+> **Već imate nešto drugo pokrenuto na istom uređaju (npr. na Raspberry
+> Pi-ju)?** Bez problema - Docker kontejneri su međusobno izolirani, pa je
+> dovoljno da svaki program sluša na drugom portu. Broj `8080` u
+> `docker-compose.yml` (dio `"8080:8000"`, lijevo od dvotočke) slobodno
+> promijenite u bilo koji broj koji na tom uređaju već nije zauzet -
+> provjerite naredbom `sudo ss -tulpn` (Linux/Raspberry Pi) prije
+> pokretanja.
 
 Nastavite na [poglavlje 3](#3-prva-prijava-i-postavljanje) za izradu admin
 računa.
@@ -322,10 +330,12 @@ Ako trebate vratiti bazu na stanje iz neke sigurnosne kopije:
 
 ## 9. Rješavanje čestih problema
 
-**"Port 8000 je već zauzet" / aplikacija se ne pokreće**
-Netko drugi na tom računalu već koristi port 8000. U `docker-compose.yml`
-promijenite `"8000:8000"` u npr. `"8080:8000"`, zatim pristupajte na
-`:8080`.
+**"Port je već zauzet" / aplikacija se ne pokreće**
+Netko drugi (drugi program, ili drugi Docker kontejner) na tom uređaju već
+koristi port 8080. U `docker-compose.yml` promijenite lijevu stranu u retku
+`"8080:8000"` u bilo koji slobodan broj, npr. `"8090:8000"`, zatim
+pristupajte na `:8090`. Slobodne portove provjerite naredbom
+`sudo ss -tulpn` (Linux/Raspberry Pi) ili `netstat -ano` (Windows).
 
 **Zaboravljena admin lozinka**
 ```bash
@@ -334,7 +344,8 @@ docker compose exec web python manage.py changepassword <korisnicko-ime>
 
 **Ne mogu pristupiti aplikaciji s drugog računala u mreži**
 Provjerite da koristite stvarnu IP adresu servera (ne `localhost`), i da
-firewall na poslužiteljskom računalu dopušta dolazne veze na port 8000.
+firewall na poslužiteljskom računalu dopušta dolazne veze na port koji ste
+postavili u `docker-compose.yml` (zadano 8080).
 
 **Kod Varijante B, HTTPS certifikat se ne generira**
 Provjerite da je DNS zapis domene stvarno usmjeren na IP adresu VPS-a
