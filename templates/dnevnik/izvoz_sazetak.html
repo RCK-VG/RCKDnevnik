@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Izvoz sažetka izostanaka{% endblock %}
+{% block content %}
+<h1 class="h5 mb-3">Sažetak izostanaka</h1>
+<p class="text-muted">Broj izostanaka, opravdanih, neopravdanih i kašnjenja po učeniku. Filteri su svi neobavezni.</p>
+<form method="get" class="card card-body">
+    <div class="mb-3">
+        <label class="form-label">{{ form.razred.label }}</label>
+        {{ form.razred }}
+    </div>
+    <div class="mb-3">
+        <label class="form-label">{{ form.predmet.label }}</label>
+        {{ form.predmet }}
+    </div>
+    <div class="mb-3">
+        <label class="form-label">{{ form.nastavnik.label }}</label>
+        {{ form.nastavnik }}
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col-6">
+            <label class="form-label small">{{ form.datum_od.label }}</label>
+            {{ form.datum_od }}
+        </div>
+        <div class="col-6">
+            <label class="form-label small">{{ form.datum_do.label }}</label>
+            {{ form.datum_do }}
+        </div>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">{{ form.format.label }}</label>
+        {{ form.format }}
+    </div>
+    <button type="submit" class="btn btn-primary btn-lg-block">Preuzmi izvoz</button>
+</form>
+{% endblock %}

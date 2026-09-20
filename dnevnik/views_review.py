@@ -1,10 +1,9 @@
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, render
 
-from . import constants
 from .forms import ReviewFilterForm
 from .models import Attendance, Note, SchoolClass, Student
+from .stats import EMPTY_STATS, stats_aggregate_kwargs
 
 
 def _apply_attendance_filters(qs, form):
@@ -16,10 +15,6 @@ def _apply_attendance_filters(qs, form):
         if form.cleaned_data.get("datum_do"):
             qs = qs.filter(lesson__date__lte=form.cleaned_data["datum_do"])
     return qs
-
-
-def _empty_stats():
-    return {"odsutan": 0, "opravdano": 0, "neopravdano": 0, "kasni": 0, "prisutan": 0}
 
 
 @login_required
@@ -44,17 +39,11 @@ def razred_detalj(request, pk):
     attendance_qs = Attendance.objects.filter(student__school_class=school_class)
     attendance_qs = _apply_attendance_filters(attendance_qs, filter_form)
 
-    stats = attendance_qs.values("student_id").annotate(
-        odsutan=Count("id", filter=Q(status=constants.ATTENDANCE_ABSENT)),
-        opravdano=Count("id", filter=Q(status=constants.ATTENDANCE_ABSENT, justified=True)),
-        neopravdano=Count("id", filter=Q(status=constants.ATTENDANCE_ABSENT, justified=False)),
-        kasni=Count("id", filter=Q(status=constants.ATTENDANCE_LATE)),
-        prisutan=Count("id", filter=Q(status=constants.ATTENDANCE_PRESENT)),
-    )
+    stats = attendance_qs.values("student_id").annotate(**stats_aggregate_kwargs())
     stats_by_student = {row["student_id"]: row for row in stats}
 
     rows = [
-        {"student": student, **stats_by_student.get(student.id, _empty_stats())}
+        {"student": student, **stats_by_student.get(student.id, EMPTY_STATS)}
         for student in students
     ]
 
@@ -78,14 +67,7 @@ def ucenik_profil(request, pk):
     attendance_qs = _apply_attendance_filters(attendance_qs, filter_form)
     attendance_qs = attendance_qs.order_by("-lesson__date", "-lesson__created_at")
 
-    # Count() aggregates always return an integer (0, not None) for an empty queryset.
-    summary = attendance_qs.aggregate(
-        odsutan=Count("id", filter=Q(status=constants.ATTENDANCE_ABSENT)),
-        opravdano=Count("id", filter=Q(status=constants.ATTENDANCE_ABSENT, justified=True)),
-        neopravdano=Count("id", filter=Q(status=constants.ATTENDANCE_ABSENT, justified=False)),
-        kasni=Count("id", filter=Q(status=constants.ATTENDANCE_LATE)),
-        prisutan=Count("id", filter=Q(status=constants.ATTENDANCE_PRESENT)),
-    )
+    summary = attendance_qs.aggregate(**stats_aggregate_kwargs())
 
     notes_qs = Note.objects.filter(student=student, is_archived=False).select_related(
         "lesson__subject", "author"

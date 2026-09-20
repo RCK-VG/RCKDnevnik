@@ -1,8 +1,16 @@
 from django import forms
+from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm
 from django.utils import timezone
 
 from .models import SchoolClass, Subject
+
+FORMAT_CHOICES = [("xlsx", "Excel (.xlsx)"), ("csv", "CSV (za Excel, ; razdjelnik)")]
+
+
+class TeacherChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, user):
+        return user.get_full_name() or user.username
 
 
 class DnevnikAuthenticationForm(AuthenticationForm):
@@ -36,6 +44,50 @@ class ReviewFilterForm(forms.Form):
     datum_do = forms.DateField(
         label="Do datuma", required=False, widget=forms.DateInput(attrs={"type": "date"})
     )
+
+
+class MatrixExportForm(forms.Form):
+    razred = forms.ModelChoiceField(
+        label="Razred",
+        queryset=SchoolClass.objects.select_related("school_year").order_by(
+            "school_year", "name"
+        ),
+    )
+    predmet = forms.ModelChoiceField(label="Predmet", queryset=Subject.objects.all())
+    datum_od = forms.DateField(
+        label="Od datuma", required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+    datum_do = forms.DateField(
+        label="Do datuma", required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+    format = forms.ChoiceField(label="Format", choices=FORMAT_CHOICES, initial="xlsx")
+
+
+class ExportFilterForm(forms.Form):
+    razred = forms.ModelChoiceField(
+        label="Razred",
+        queryset=SchoolClass.objects.select_related("school_year").order_by(
+            "school_year", "name"
+        ),
+        required=False,
+        empty_label="Svi razredi",
+    )
+    predmet = forms.ModelChoiceField(
+        label="Predmet", queryset=Subject.objects.all(), required=False, empty_label="Svi predmeti"
+    )
+    nastavnik = TeacherChoiceField(
+        label="Nastavnik",
+        queryset=get_user_model().objects.filter(is_active=True).order_by("last_name", "first_name"),
+        required=False,
+        empty_label="Svi nastavnici",
+    )
+    datum_od = forms.DateField(
+        label="Od datuma", required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+    datum_do = forms.DateField(
+        label="Do datuma", required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+    format = forms.ChoiceField(label="Format", choices=FORMAT_CHOICES, initial="xlsx")
 
 
 class LessonPickerForm(forms.Form):

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_auth, views_import, views_lesson, views_review
+from . import views, views_auth, views_export, views_import, views_lesson, views_review
 
 urlpatterns = [
     path("", views.pocetna, name="pocetna"),
@@ -15,4 +15,9 @@ urlpatterns = [
     path("razredi/", views_review.razredi, name="razredi"),
     path("razredi/<int:pk>/", views_review.razred_detalj, name="razred_detalj"),
     path("ucenici/<int:pk>/", views_review.ucenik_profil, name="ucenik_profil"),
+    path("izvoz/", views_export.izvoz, name="izvoz"),
+    path("izvoz/prisutnost/", views_export.izvoz_prisutnost, name="izvoz_prisutnost"),
+    path("izvoz/sazetak/", views_export.izvoz_sazetak, name="izvoz_sazetak"),
+    path("izvoz/biljeske/", views_export.izvoz_biljeske, name="izvoz_biljeske"),
+    path("izvoz/potpuni/", views_export.izvoz_potpuni, name="izvoz_potpuni"),
 ]

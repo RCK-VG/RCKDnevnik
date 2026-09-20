@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Izvoz podataka{% endblock %}
+{% block content %}
+<h1 class="h5 mb-3">Izvoz podataka</h1>
+<div class="list-group">
+    <a href="{% url 'izvoz_prisutnost' %}" class="list-group-item list-group-item-action">
+        <strong>Prisutnost</strong>
+        <div class="small text-muted">Matrica učenici × datumi za odabrani razred i predmet</div>
+    </a>
+    <a href="{% url 'izvoz_sazetak' %}" class="list-group-item list-group-item-action">
+        <strong>Sažetak izostanaka</strong>
+        <div class="small text-muted">Broj izostanaka, opravdanih, neopravdanih i kašnjenja po učeniku</div>
+    </a>
+    <a href="{% url 'izvoz_biljeske' %}" class="list-group-item list-group-item-action">
+        <strong>Bilješke</strong>
+        <div class="small text-muted">Popis bilješki s autorom i vremenom unosa</div>
+    </a>
+    {% if is_admin %}
+    <a href="{% url 'izvoz_potpuni' %}" class="list-group-item list-group-item-action">
+        <strong>Potpuni izvoz (samo admin)</strong>
+        <div class="small text-muted">Svi podaci u jednoj Excel datoteci, za sigurnosnu kopiju/reviziju</div>
+    </a>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,18 +1,16 @@
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import redirect, render
 
 from . import imports
 from .forms import FileImportForm
 from .models import SchoolYear
-from .permissions import is_admin
+from .permissions import admin_required
 
 SESSION_STUDENTS_KEY = "uvoz_ucenici_preview"
 SESSION_SUBJECTS_KEY = "uvoz_predmeti_preview"
 
 
-@login_required
-@user_passes_test(is_admin)
+@admin_required
 def uvoz_ucenika(request):
     school_years = SchoolYear.objects.filter(is_archived=False)
     preview = request.session.get(SESSION_STUDENTS_KEY)
@@ -73,8 +71,7 @@ def uvoz_ucenika(request):
     )
 
 
-@login_required
-@user_passes_test(is_admin)
+@admin_required
 def uvoz_predmeta(request):
     preview = request.session.get(SESSION_SUBJECTS_KEY)
 
