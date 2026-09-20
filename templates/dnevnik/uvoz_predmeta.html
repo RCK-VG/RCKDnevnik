@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Uvoz predmeta{% endblock %}
+{% block content %}
+<h1 class="h5 mb-3">Uvoz predmeta</h1>
+<p class="text-muted">
+    Datoteka (CSV ili Excel) s jednim stupcem naziva predmeta, s ili bez zaglavlja "naziv".
+</p>
+
+{% if not preview %}
+<form method="post" enctype="multipart/form-data" class="card card-body mb-4">
+    {% csrf_token %}
+    <div class="mb-3">
+        <label class="form-label">{{ form.file.label }}</label>
+        {{ form.file }}
+    </div>
+    <button type="submit" class="btn btn-primary">Prikaži pregled</button>
+</form>
+{% else %}
+<div class="table-responsive mb-3">
+    <table class="table table-sm table-striped">
+        <thead><tr><th>Redak</th><th>Naziv</th><th>Akcija</th></tr></thead>
+        <tbody>
+        {% for row in preview %}
+            <tr class="{% if row.action == 'dodaje' %}table-success{% endif %}">
+                <td>{{ row.line }}</td>
+                <td>{{ row.name }}</td>
+                <td>{% if row.action == 'dodaje' %}Dodaje se{% else %}Preskače se (već postoji){% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+<form method="post" class="d-flex gap-2">
+    {% csrf_token %}
+    <button type="submit" name="potvrdi" value="1" class="btn btn-success">Potvrdi uvoz</button>
+    <button type="submit" name="odustani" value="1" class="btn btn-outline-secondary">Odustani</button>
+</form>
+{% endif %}
+{% endblock %}
