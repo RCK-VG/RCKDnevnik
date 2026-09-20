@@ -147,6 +147,18 @@ if SECURE_SSL_REDIRECT:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
+# Trust the X-Forwarded-Proto header from a reverse proxy (Caddy in
+# docker-compose.prod.yml) so Django knows the original request was HTTPS,
+# even though Caddy forwards it to gunicorn over plain HTTP internally.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "")
+
+# Where "Preuzmi backup" and the daily backup service write their files.
+BACKUP_DIR = Path(os.environ.get("BACKUP_DIR", str(BASE_DIR / "backups")))
+BACKUP_DIR.mkdir(exist_ok=True, parents=True)
+BACKUP_KEEP = int(os.environ.get("BACKUP_KEEP", "14"))
+
 # Do not leak personal data (names, notes) into logs - keep Django's default
 # logging (errors to console) and avoid custom request/body logging.
 

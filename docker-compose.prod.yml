@@ -1,0 +1,40 @@
+# Varijanta B: mali VPS s Caddyjem i automatskim HTTPS-om (domena opcionalna).
+# Pokretanje: docker compose -f docker-compose.prod.yml up -d --build
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    expose:
+      - "8000"
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/backups
+
+  backup:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    entrypoint: []
+    command: sh -c "while true; do python manage.py backup_db; sleep 86400; done"
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/backups
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    env_file: .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+volumes:
+  caddy_data:
+  caddy_config:

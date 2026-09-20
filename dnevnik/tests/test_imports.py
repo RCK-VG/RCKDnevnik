@@ -65,6 +65,19 @@ class StudentImportTests(TestCase):
         self.assertEqual(rows[0]["action"], "dodaje")
         self.assertEqual(rows[0]["class_name"], "1.b")
 
+    def test_legacy_windows_1250_encoded_csv_is_read_correctly(self):
+        # Older exports from Croatian Excel sometimes save CSV as
+        # Windows-1250 (cp1250) instead of UTF-8.
+        content = "razred;prezime;ime;IP;PP\n1.a;Đurić;Željko;ne;ne\n"
+        raw = content.encode("cp1250")
+        upload = SimpleUploadedFile("ucenici_cp1250.csv", raw, content_type="text/csv")
+
+        rows = imports.parse_student_rows(upload, self.school_year)
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["last_name"], "Đurić")
+        self.assertEqual(rows[0]["first_name"], "Željko")
+
 
 class SubjectImportTests(TestCase):
     def test_parses_and_deduplicates_subjects(self):

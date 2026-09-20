@@ -1,0 +1,22 @@
+# Varijanta A: lokalno u skolskoj mrezi (bez domene, pristup preko IP adrese).
+# Pokretanje: docker compose up -d --build
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/backups
+
+  backup:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    entrypoint: []
+    command: sh -c "while true; do python manage.py backup_db; sleep 86400; done"
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/backups
