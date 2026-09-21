@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Svi satovi{% endblock %}
+{% block content %}
+<h1 class="h5 mb-3">Svi satovi</h1>
+
+<form method="get" class="card card-body mb-3">
+    <div class="row g-2">
+        <div class="col-12 col-sm-3">
+            <label class="form-label small">{{ filter_form.razred.label }}</label>
+            {{ filter_form.razred }}
+        </div>
+        <div class="col-12 col-sm-3">
+            <label class="form-label small">{{ filter_form.predmet.label }}</label>
+            {{ filter_form.predmet }}
+        </div>
+        <div class="col-12 col-sm-3">
+            <label class="form-label small">{{ filter_form.nastavnik.label }}</label>
+            {{ filter_form.nastavnik }}
+        </div>
+        <div class="col-6 col-sm-3">
+            <label class="form-label small">{{ filter_form.datum_od.label }}</label>
+            {{ filter_form.datum_od }}
+        </div>
+        <div class="col-6 col-sm-3">
+            <label class="form-label small">{{ filter_form.datum_do.label }}</label>
+            {{ filter_form.datum_do }}
+        </div>
+    </div>
+    <button type="submit" class="btn btn-outline-primary btn-sm mt-3">Filtriraj</button>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-sm table-striped align-middle">
+        <thead>
+            <tr>
+                <th>Datum</th>
+                <th>Razred</th>
+                <th>Predmet</th>
+                <th>Nastavnik</th>
+                <th>Tema sata</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for lesson in page_obj %}
+            <tr>
+                <td><a href="{% url 'sat' pk=lesson.id %}">{{ lesson.date|date:"d.m.Y." }}</a></td>
+                <td>{{ lesson.school_class }}</td>
+                <td>{{ lesson.subject }}</td>
+                <td>{{ lesson.teacher.get_full_name|default:lesson.teacher.username }}</td>
+                <td>{{ lesson.topic }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="5" class="text-muted">Nema satova za odabrani filter.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<nav>
+    <ul class="pagination">
+        {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&page={{ page_obj.previous_page_number }}">Prethodna</a></li>
+        {% endif %}
+        <li class="page-item disabled"><span class="page-link">Stranica {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&page={{ page_obj.next_page_number }}">Sljedeća</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

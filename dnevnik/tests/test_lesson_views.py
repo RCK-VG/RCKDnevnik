@@ -79,10 +79,14 @@ class LessonEditPermissionTests(TestCase):
         response = self.client.get(reverse("sat", kwargs={"pk": self.lesson.id}))
         self.assertEqual(response.status_code, 200)
 
-    def test_other_teacher_cannot_edit_someone_elses_lesson(self):
+    def test_other_teacher_can_view_but_not_edit_someone_elses_lesson(self):
+        # Per spec, every teacher can VIEW every lesson; only the owner/admin
+        # can edit it. The view should render read-only (no Spremi button).
         self.client.login(username="nastavnik2", password="x")
         response = self.client.get(reverse("sat", kwargs={"pk": self.lesson.id}))
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["can_edit"])
+        self.assertNotContains(response, "Spremi")
 
     def test_other_teacher_cannot_post_changes_either(self):
         self.client.login(username="nastavnik2", password="x")

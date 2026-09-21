@@ -1,8 +1,9 @@
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, render
 
-from .forms import ReviewFilterForm
-from .models import Attendance, Note, SchoolClass, Student
+from .forms import LessonFilterForm, ReviewFilterForm
+from .models import Attendance, Lesson, Note, SchoolClass, Student
 from .stats import EMPTY_STATS, stats_aggregate_kwargs
 
 
@@ -15,6 +16,34 @@ def _apply_attendance_filters(qs, form):
         if form.cleaned_data.get("datum_do"):
             qs = qs.filter(lesson__date__lte=form.cleaned_data["datum_do"])
     return qs
+
+
+@login_required
+def svi_satovi(request):
+    filter_form = LessonFilterForm(request.GET or None)
+    lessons = Lesson.objects.select_related("school_class", "subject", "teacher").order_by(
+        "-date", "-created_at"
+    )
+    if filter_form.is_valid():
+        if filter_form.cleaned_data.get("razred"):
+            lessons = lessons.filter(school_class=filter_form.cleaned_data["razred"])
+        if filter_form.cleaned_data.get("predmet"):
+            lessons = lessons.filter(subject=filter_form.cleaned_data["predmet"])
+        if filter_form.cleaned_data.get("nastavnik"):
+            lessons = lessons.filter(teacher=filter_form.cleaned_data["nastavnik"])
+        if filter_form.cleaned_data.get("datum_od"):
+            lessons = lessons.filter(date__gte=filter_form.cleaned_data["datum_od"])
+        if filter_form.cleaned_data.get("datum_do"):
+            lessons = lessons.filter(date__lte=filter_form.cleaned_data["datum_do"])
+
+    paginator = Paginator(lessons, 50)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "dnevnik/svi_satovi.html",
+        {"filter_form": filter_form, "page_obj": page_obj},
+    )
 
 
 @login_required

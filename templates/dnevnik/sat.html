@@ -7,6 +7,10 @@
     {% if lesson %} · {{ lesson.teacher.get_full_name|default:lesson.teacher.username }}{% endif %}
 </p>
 
+{% if not can_edit %}
+<div class="alert alert-secondary py-2">Pregled tuđeg sata (samo za čitanje) - uređivati ga može samo {{ lesson.teacher.get_full_name|default:lesson.teacher.username }} ili administrator.</div>
+{% endif %}
+
 {% if group_label %}
 <div class="alert alert-info py-2">
     Prikazana je samo <strong>Grupa {{ group_label }}</strong> ({{ rows|length }} učenika).
@@ -32,18 +36,24 @@
 
     <div class="mb-3">
         <label class="form-label fw-bold">Tema sata</label>
-        <input type="text" name="tema" value="{{ lesson.topic|default:'' }}" placeholder="npr. Pitagorin poučak">
+        {% if can_edit %}
+            <input type="text" name="tema" value="{{ lesson.topic|default:'' }}" placeholder="npr. Pitagorin poučak">
+        {% else %}
+            <div>{{ lesson.topic|default:"(nema teme)" }}</div>
+        {% endif %}
     </div>
 
     <div class="mb-4">
         <label class="form-label fw-bold">Opća bilješka (za cijeli sat)</label>
         {% if general_note.editable %}
             <textarea name="opca_biljeska" rows="2" placeholder="Napomena o satu (nije vezana uz pojedinog učenika)">{{ general_note.text }}</textarea>
-        {% else %}
+        {% elif general_note.text %}
             <div class="alert alert-secondary small mb-0">
                 {{ general_note.text|linebreaksbr }}
-                <div class="mt-1"><em>Autor: {{ general_note.author }} ({{ general_note.updated_at|date:"d.m.Y. H:i" }}) - ne možete uređivati tuđu bilješku.</em></div>
+                <div class="mt-1"><em>Autor: {{ general_note.author }} ({{ general_note.updated_at|date:"d.m.Y. H:i" }}){% if can_edit %} - ne možete uređivati tuđu bilješku{% endif %}.</em></div>
             </div>
+        {% else %}
+            <div class="text-muted small">Nema opće bilješke.</div>
         {% endif %}
     </div>
 
@@ -62,6 +72,7 @@
                     {% if row.student.is_ip %}<span class="badge badge-ip">IP</span>{% endif %}
                     {% if row.student.is_pp %}<span class="badge badge-pp">PP</span>{% endif %}
                 </div>
+                {% if can_edit %}
                 <div class="btn-group" role="group">
                     <button type="button" class="btn btn-sm"
                             :class="status=='{{ attendance_present }}' ? 'btn-success' : 'btn-outline-success'"
@@ -73,8 +84,13 @@
                             :class="status=='{{ attendance_absent }}' ? 'btn-danger' : 'btn-outline-danger'"
                             @click="status='{{ attendance_absent }}'">Odsutan</button>
                 </div>
+                <input type="hidden" name="status_{{ row.student.id }}" x-model="status">
+                {% else %}
+                <span class="badge {% if row.status == attendance_present %}bg-success{% elif row.status == attendance_late %}bg-warning{% else %}bg-danger{% endif %}">
+                    {% if row.status == attendance_present %}Prisutan{% elif row.status == attendance_late %}Kasni{% else %}Odsutan{% endif %}
+                </span>
+                {% endif %}
             </div>
-            <input type="hidden" name="status_{{ row.student.id }}" x-model="status">
 
             {% if can_set_justified %}
             <div class="mt-2" x-show="status=='{{ attendance_absent }}'" x-cloak>
@@ -86,7 +102,7 @@
             </div>
             {% elif row.justified is not None %}
             <div class="mt-2 small text-muted" x-show="status=='{{ attendance_absent }}'" x-cloak>
-                {% if row.justified %}Opravdano{% else %}Neopravdano{% endif %} (postavlja razrednik/admin)
+                {% if row.justified %}Opravdano{% else %}Neopravdano{% endif %}{% if can_edit %} (postavlja razrednik/admin){% endif %}
             </div>
             {% endif %}
 
@@ -95,11 +111,13 @@
                 <div x-show="showNote" x-cloak>
                     {% if row.note.editable %}
                         <textarea name="note_{{ row.student.id }}" class="mt-1" rows="2" placeholder="Bilješka za ovog učenika">{{ row.note.text }}</textarea>
-                    {% else %}
+                    {% elif row.note.text %}
                         <div class="alert alert-secondary small mt-1 mb-0">
                             {{ row.note.text|linebreaksbr }}
-                            <div class="mt-1"><em>Autor: {{ row.note.author }} - ne možete uređivati tuđu bilješku.</em></div>
+                            <div class="mt-1"><em>Autor: {{ row.note.author }}{% if can_edit %} - ne možete uređivati tuđu bilješku{% endif %}.</em></div>
                         </div>
+                    {% else %}
+                        <div class="text-muted small mt-1">Nema bilješke.</div>
                     {% endif %}
                 </div>
             </div>
@@ -107,6 +125,8 @@
         {% endfor %}
     </div>
 
+    {% if can_edit %}
     <button type="submit" class="btn btn-primary btn-lg-block">Spremi</button>
+    {% endif %}
 </form>
 {% endblock %}

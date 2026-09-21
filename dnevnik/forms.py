@@ -47,6 +47,32 @@ class ReviewFilterForm(forms.Form):
     )
 
 
+class LessonFilterForm(forms.Form):
+    razred = forms.ModelChoiceField(
+        label="Razred",
+        queryset=SchoolClass.objects.select_related("school_year").order_by(
+            "school_year", "name"
+        ),
+        required=False,
+        empty_label="Svi razredi",
+    )
+    predmet = forms.ModelChoiceField(
+        label="Predmet", queryset=Subject.objects.all(), required=False, empty_label="Svi predmeti"
+    )
+    nastavnik = TeacherChoiceField(
+        label="Nastavnik",
+        queryset=get_user_model().objects.filter(is_active=True).order_by("last_name", "first_name"),
+        required=False,
+        empty_label="Svi nastavnici",
+    )
+    datum_od = forms.DateField(
+        label="Od datuma", required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+    datum_do = forms.DateField(
+        label="Do datuma", required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+
+
 class MatrixExportForm(forms.Form):
     razred = forms.ModelChoiceField(
         label="Razred",

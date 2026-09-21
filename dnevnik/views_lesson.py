@@ -50,20 +50,24 @@ def otvori_sat(request):
 
 @login_required
 def sat(request, pk):
+    """Any logged-in teacher may VIEW any lesson (per spec: no restriction
+    by class/subject); only the lesson's own teacher or an admin may EDIT
+    (save) it - enforced below, on the POST path only."""
     lesson = get_object_or_404(
         Lesson.objects.select_related("school_class", "subject", "teacher"), pk=pk
     )
-    if not can_edit_lesson(request.user, lesson):
-        raise PermissionDenied("Ne možete uređivati tuđi nastavni sat.")
+    can_edit = can_edit_lesson(request.user, lesson)
 
     if request.method == "POST":
+        if not can_edit:
+            raise PermissionDenied("Ne možete uređivati tuđi nastavni sat.")
         group_label = _clean_group_label(request.POST.get("grupa", ""))
         _save_lesson(request, lesson, lesson.school_class, lesson.subject, lesson.date, group_label)
         return _redirect_to_sat(lesson.id, group_label)
 
     group_label = _clean_group_label(request.GET.get("grupa", ""))
     return _render_sat_screen(
-        request, lesson, lesson.school_class, lesson.subject, lesson.date, group_label
+        request, lesson, lesson.school_class, lesson.subject, lesson.date, group_label, can_edit
     )
 
 
@@ -114,18 +118,18 @@ def _save_lesson(request, lesson, school_class, subject, date, group_label):
     return lesson
 
 
-def _note_context(note, user):
+def _note_context(note, user, can_edit_overall):
     if note is None:
-        return {"text": "", "editable": True, "author": None, "updated_at": None}
+        return {"text": "", "editable": can_edit_overall, "author": None, "updated_at": None}
     return {
         "text": note.text,
-        "editable": can_edit_note(user, note),
+        "editable": can_edit_overall and can_edit_note(user, note),
         "author": note.author,
         "updated_at": note.updated_at,
     }
 
 
-def _render_sat_screen(request, lesson, school_class, subject, date, group_label=""):
+def _render_sat_screen(request, lesson, school_class, subject, date, group_label="", can_edit=True):
     from .models import Attendance, Note
 
     students = _group_students(school_class, group_label)
@@ -156,7 +160,7 @@ def _render_sat_screen(request, lesson, school_class, subject, date, group_label
                 "student": student,
                 "status": attendance.status if attendance else constants.ATTENDANCE_PRESENT,
                 "justified": attendance.justified if attendance else None,
-                "note": _note_context(notes_by_student.get(student.id), request.user),
+                "note": _note_context(notes_by_student.get(student.id), request.user, can_edit),
             }
         )
 
@@ -176,8 +180,9 @@ def _render_sat_screen(request, lesson, school_class, subject, date, group_label
         "subject": subject,
         "date": date,
         "rows": rows,
-        "general_note": _note_context(general_note, request.user),
-        "can_set_justified": can_set_justified(request.user, school_class),
+        "general_note": _note_context(general_note, request.user, can_edit),
+        "can_edit": can_edit,
+        "can_set_justified": can_edit and can_set_justified(request.user, school_class),
         "save_url": save_url,
         "status_choices": constants.ATTENDANCE_STATUS_CHOICES,
         "attendance_present": constants.ATTENDANCE_PRESENT,
