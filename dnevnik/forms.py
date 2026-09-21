@@ -80,7 +80,12 @@ class MatrixExportForm(forms.Form):
             "school_year", "name"
         ),
     )
-    predmet = forms.ModelChoiceField(label="Predmet", queryset=Subject.objects.all())
+    predmet = forms.ModelChoiceField(
+        label="Predmet",
+        queryset=Subject.objects.all(),
+        required=False,
+        empty_label="Svi predmeti",
+    )
     datum_od = forms.DateField(
         label="Od datuma", required=False, widget=forms.DateInput(attrs={"type": "date"})
     )

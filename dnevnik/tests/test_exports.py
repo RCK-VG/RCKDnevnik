@@ -55,12 +55,12 @@ class ExportScreensTests(TestCase):
 
     # --- Prisutnost (matrix) ---------------------------------------------
 
-    def test_matrix_requires_razred_and_predmet(self):
+    def test_matrix_requires_razred_but_not_predmet(self):
         response = self.client.get(reverse("izvoz_prisutnost"), {"format": "xlsx"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/html; charset=utf-8")
 
-    def test_matrix_xlsx_download_has_two_sheets(self):
+    def test_matrix_xlsx_download_has_three_sheets(self):
         response = self.client.get(
             reverse("izvoz_prisutnost"),
             {"razred": self.school_class.id, "predmet": self.subject.id, "format": "xlsx"},
@@ -68,11 +68,68 @@ class ExportScreensTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("spreadsheetml", response["Content-Type"])
         workbook = openpyxl.load_workbook(io.BytesIO(response.content))
-        self.assertEqual(workbook.sheetnames, ["Prisutnost", "Satovi"])
+        self.assertEqual(workbook.sheetnames, ["Prisutnost", "Satovi", "Bilješke"])
         # Row 1-3 = meta lines, row 4 blank, row 5 = header, row 6+ = data.
         sheet = workbook["Prisutnost"]
         values = [cell.value for row in sheet.iter_rows() for cell in row if cell.value]
-        self.assertIn("Anić Ana", " ".join(str(v) for v in values) or "")
+        joined = " ".join(str(v) for v in values)
+        self.assertIn("Anić Ana", joined)
+        self.assertIn("Odsutan (opravdano)", joined)
+        self.assertIn("Prisutan", joined)
+
+    def test_matrix_bilj_sheet_contains_notes_for_same_filters(self):
+        response = self.client.get(
+            reverse("izvoz_prisutnost"),
+            {"razred": self.school_class.id, "predmet": self.subject.id, "format": "xlsx"},
+        )
+        workbook = openpyxl.load_workbook(io.BytesIO(response.content))
+        sheet = workbook["Bilješke"]
+        values = [cell.value for row in sheet.iter_rows() for cell in row if cell.value]
+        joined = " ".join(str(v) for v in values)
+        self.assertIn("Opća napomena", joined)
+        self.assertIn("Kasnila", joined)
+
+    def test_matrix_status_cells_are_colored(self):
+        response = self.client.get(
+            reverse("izvoz_prisutnost"),
+            {"razred": self.school_class.id, "predmet": self.subject.id, "format": "xlsx"},
+        )
+        workbook = openpyxl.load_workbook(io.BytesIO(response.content))
+        sheet = workbook["Prisutnost"]
+        absent_cell = present_cell = None
+        for row in sheet.iter_rows():
+            for cell in row:
+                if cell.value == "Odsutan (opravdano)":
+                    absent_cell = cell
+                elif cell.value == "Prisutan":
+                    present_cell = cell
+        self.assertIsNotNone(absent_cell)
+        self.assertIsNotNone(present_cell)
+        self.assertIn("FFC7CE", str(absent_cell.fill.fgColor.rgb))
+        self.assertIn("C6EFCE", str(present_cell.fill.fgColor.rgb))
+
+    def test_matrix_all_subjects_groups_by_subject_and_date(self):
+        other_lesson = Lesson.objects.create(
+            school_class=self.school_class,
+            subject=self.other_subject,
+            teacher=self.teacher1,
+            date="2026-01-11",
+            topic="Padeži",
+        )
+        Attendance.objects.create(
+            lesson=other_lesson, student=self.ana, status=constants.ATTENDANCE_LATE
+        )
+        response = self.client.get(
+            reverse("izvoz_prisutnost"),
+            {"razred": self.school_class.id, "format": "xlsx"},  # predmet left blank = svi
+        )
+        workbook = openpyxl.load_workbook(io.BytesIO(response.content))
+        sheet = workbook["Prisutnost"]
+        header_row = list(sheet.iter_rows())[4]  # 3 meta lines + 1 blank + header
+        header_values = [c.value for c in header_row if c.value]
+        joined = " ".join(header_values)
+        self.assertIn("Matematika", joined)
+        self.assertIn("Hrvatski jezik", joined)
 
     def test_matrix_csv_has_bom_and_semicolon_and_exporter_header(self):
         response = self.client.get(
