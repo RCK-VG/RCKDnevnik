@@ -127,3 +127,84 @@ class StudentAdminGroupActionTests(TestCase):
         self.s2.refresh_from_db()
         self.assertEqual(self.s1.group_label, "A")
         self.assertEqual(self.s2.group_label, "A")
+
+
+class LessonRemembersItsGroupTests(TestCase):
+    """A lesson saved for one group must reopen with that group (e.g. from
+    the home page list), not fall back to the whole class."""
+
+    def setUp(self):
+        self.teacher = make_user("nastavnik1")
+        school_year = SchoolYear.objects.create(name="2025./2026.", is_active=True)
+        self.school_class = SchoolClass.objects.create(name="1.a", school_year=school_year)
+        self.subject = Subject.objects.create(name="Praktikum")
+        self.ana = Student.objects.create(
+            first_name="Ana", last_name="Anić", school_class=self.school_class, group_label="A"
+        )
+        self.bruno = Student.objects.create(
+            first_name="Bruno", last_name="Barić", school_class=self.school_class, group_label="B"
+        )
+        self.client.login(username="nastavnik1", password="x")
+
+    def _save(self, group):
+        return self.client.post(
+            reverse("otvori_sat"),
+            {
+                "razred": self.school_class.id,
+                "predmet": self.subject.id,
+                "datum": "2026-01-15",
+                "grupa": group,
+            },
+        )
+
+    def _shown(self, response):
+        return {row["student"].last_name for row in response.context["rows"]}
+
+    def test_lesson_saved_for_group_a_reopens_with_group_a(self):
+        self._save("A")
+        lesson = Lesson.objects.get()
+        response = self.client.get(reverse("sat", kwargs={"pk": lesson.id}))  # no ?grupa=
+        self.assertEqual(response.context["group_label"], "A")
+        self.assertEqual(self._shown(response), {"Anić"})
+
+    def test_explicit_whole_class_overrides_the_remembered_group(self):
+        self._save("A")
+        lesson = Lesson.objects.get()
+        response = self.client.get(reverse("sat", kwargs={"pk": lesson.id}), {"grupa": "sve"})
+        self.assertEqual(response.context["group_label"], "")
+        self.assertEqual(self._shown(response), {"Anić", "Barić"})
+
+    def test_explicit_other_group_can_still_be_opened(self):
+        self._save("A")
+        lesson = Lesson.objects.get()
+        response = self.client.get(reverse("sat", kwargs={"pk": lesson.id}), {"grupa": "B"})
+        self.assertEqual(self._shown(response), {"Barić"})
+
+    def test_lesson_with_both_groups_recorded_opens_as_whole_class(self):
+        self._save("A")
+        lesson = Lesson.objects.get()
+        self.client.post(reverse("sat", kwargs={"pk": lesson.id}), {"grupa": "B"})
+        response = self.client.get(reverse("sat", kwargs={"pk": lesson.id}))
+        self.assertEqual(response.context["group_label"], "")
+        self.assertEqual(self._shown(response), {"Anić", "Barić"})
+
+    def test_whole_class_lesson_opens_as_whole_class(self):
+        self._save("")
+        lesson = Lesson.objects.get()
+        response = self.client.get(reverse("sat", kwargs={"pk": lesson.id}))
+        self.assertEqual(response.context["group_label"], "")
+        self.assertEqual(self._shown(response), {"Anić", "Barić"})
+
+    def test_saving_whole_class_stays_on_whole_class(self):
+        self._save("A")
+        lesson = Lesson.objects.get()
+        response = self.client.post(reverse("sat", kwargs={"pk": lesson.id}), {"grupa": ""})
+        self.assertRedirects(response, reverse("sat", kwargs={"pk": lesson.id}) + "?grupa=sve")
+
+    def test_home_page_link_opens_the_lesson_in_its_group(self):
+        self._save("B")
+        lesson = Lesson.objects.get()
+        home = self.client.get(reverse("pocetna"))
+        self.assertContains(home, reverse("sat", kwargs={"pk": lesson.id}))
+        response = self.client.get(reverse("sat", kwargs={"pk": lesson.id}))
+        self.assertEqual(self._shown(response), {"Barić"})

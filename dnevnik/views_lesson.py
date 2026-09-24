@@ -7,14 +7,34 @@ from django.utils.http import urlencode
 
 from . import constants, lesson_service
 from .forms import LessonPickerForm
-from .models import Lesson, Student, theory_teacher_for
+from .models import Attendance, Lesson, Student, theory_teacher_for
 from .permissions import can_edit_lesson, can_edit_note, can_set_justified
 
 VALID_GROUP_LABELS = {code for code, _ in constants.GROUP_CHOICES}
 
 
+# ?grupa=sve explicitly asks for the whole class; a missing ?grupa= means
+# "use the lesson's own group" (see _lesson_group).
+WHOLE_CLASS = "sve"
+
+
 def _clean_group_label(raw):
     return raw if raw in VALID_GROUP_LABELS else ""
+
+
+def _lesson_group(lesson):
+    """The group a saved lesson belongs to: if attendance was recorded only
+    for students of one group, that group; otherwise "" (whole class). This
+    is what makes a lesson reopen with the same group it was saved with,
+    without storing anything extra."""
+    groups = set(
+        Attendance.objects.filter(lesson=lesson).values_list("student__group_label", flat=True)
+    )
+    if len(groups) == 1:
+        only = next(iter(groups))
+        if only in VALID_GROUP_LABELS:
+            return only
+    return ""
 
 
 @login_required
@@ -71,9 +91,13 @@ def sat(request, pk):
             raise PermissionDenied("Ne možete uređivati tuđi nastavni sat.")
         group_label = _clean_group_label(request.POST.get("grupa", ""))
         _save_lesson(request, lesson, lesson.school_class, lesson.subject, lesson.date, group_label)
-        return _redirect_to_sat(lesson.id, group_label)
+        return _redirect_to_sat(lesson.id, group_label, keep_whole_class=True)
 
-    group_label = _clean_group_label(request.GET.get("grupa", ""))
+    raw_group = request.GET.get("grupa")
+    if raw_group is None:
+        group_label = _lesson_group(lesson)
+    else:
+        group_label = _clean_group_label(raw_group)  # "sve" -> whole class
     return _render_sat_screen(
         request,
         lesson,
@@ -86,10 +110,14 @@ def sat(request, pk):
     )
 
 
-def _redirect_to_sat(lesson_id, group_label):
+def _redirect_to_sat(lesson_id, group_label, keep_whole_class=False):
     url = reverse("sat", kwargs={"pk": lesson_id})
     if group_label:
         url += f"?grupa={group_label}"
+    elif keep_whole_class:
+        # After saving the whole class, stay on the whole class instead of
+        # falling back to the lesson's remembered group.
+        url += f"?grupa={WHOLE_CLASS}"
     return redirect(url)
 
 
@@ -170,6 +198,8 @@ def _lesson_query_url(lesson, school_class, subject, date, period, group_label, 
         base = reverse("sat", kwargs={"pk": lesson.id})
     if group_label:
         params["grupa"] = group_label
+    elif lesson is not None:
+        params["grupa"] = WHOLE_CLASS
     if copy_id:
         params["kopiraj"] = copy_id
     return f"{base}?{urlencode(params)}" if params else base
@@ -259,6 +289,7 @@ def _render_sat_screen(
         "attendance_absent": constants.ATTENDANCE_ABSENT,
         "attendance_late": constants.ATTENDANCE_LATE,
         "group_label": group_label,
+        "whole_class": WHOLE_CLASS,
         "group_choices": constants.GROUP_CHOICES,
         "has_groups": has_groups,
         "theory_teacher": theory_teacher_for(school_class, subject),

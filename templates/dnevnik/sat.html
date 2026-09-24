@@ -26,17 +26,18 @@
 </div>
 {% endif %}
 
-{% if group_label %}
+{% if has_groups and lesson %}
+<div class="mb-3">
+    <span class="small text-muted">Prikaz:</span>
+    <a href="{% url 'sat' pk=lesson.id %}?grupa={{ whole_class }}" class="btn btn-sm {% if not group_label %}btn-secondary{% else %}btn-outline-secondary{% endif %}">Cijeli razred</a>
+    {% for code, label in group_choices %}
+        <a href="{% url 'sat' pk=lesson.id %}?grupa={{ code }}" class="btn btn-sm {% if group_label == code %}btn-secondary{% else %}btn-outline-secondary{% endif %}">{{ label }}</a>
+    {% endfor %}
+    {% if group_label %}<span class="small text-muted ms-1">({{ rows|length }} učenika)</span>{% endif %}
+</div>
+{% elif group_label %}
 <div class="alert alert-info py-2">
     Prikazana je samo <strong>Grupa {{ group_label }}</strong> ({{ rows|length }} učenika).
-    {% if lesson %}<a href="{% url 'sat' pk=lesson.id %}">Prikaži cijeli razred</a>{% endif %}
-</div>
-{% elif has_groups and lesson %}
-<div class="mb-3">
-    <span class="small text-muted">Ovaj razred ima grupe:</span>
-    {% for code, label in group_choices %}
-        <a href="{% url 'sat' pk=lesson.id %}?grupa={{ code }}" class="btn btn-outline-secondary btn-sm">{{ label }}</a>
-    {% endfor %}
 </div>
 {% endif %}
 
