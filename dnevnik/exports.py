@@ -13,7 +13,17 @@ from django.utils import timezone
 from django.utils.timezone import localtime
 
 from . import constants
-from .models import Attendance, ExportLog, Lesson, Note, SchoolClass, SchoolYear, Student, Subject
+from .models import (
+    Attendance,
+    ExportLog,
+    Lesson,
+    Note,
+    SchoolClass,
+    SchoolYear,
+    Student,
+    Subject,
+    theory_teacher_for,
+)
 from .stats import stats_aggregate_kwargs
 
 CSV_DELIMITER = ";"
@@ -51,6 +61,11 @@ def _status_fill(cell_text):
     if cell_text.startswith("Odsutan"):
         return FILL_ABSENT, FONT_ABSENT
     return None, None
+
+
+def _theory_label(school_class, subject):
+    theory = theory_teacher_for(school_class, subject)
+    return theory.theory_teacher_label if theory else ""
 
 
 def _safe_filename_part(text):
@@ -159,22 +174,34 @@ def respond_attendance_matrix(user, school_class, subject, datum_od, datum_do, f
     _log_export(user, "prisutnost", filters_summary)
     filename_base = f"prisutnost_{_safe_filename_part(school_class)}_{_safe_filename_part(subject_label)}"
 
+    meta_lines = _meta_lines(user, title)
+    if subject:
+        theory = theory_teacher_for(school_class, subject)
+        if theory:
+            meta_lines.append(f"Učitelj teorije: {theory.theory_teacher_label}")
+
     if fmt == "csv":
-        content = _to_csv(_meta_lines(user, title), header, rows)
+        content = _to_csv(meta_lines, header, rows)
         return _attachment_response(content, f"{filename_base}.csv", "text/csv; charset=utf-8")
 
     workbook = openpyxl.Workbook()
     ws = workbook.active
     ws.title = "Prisutnost"
-    _write_xlsx_sheet(ws, _meta_lines(user, title), header, rows, color_status_cells=True)
+    _write_xlsx_sheet(ws, meta_lines, header, rows, color_status_cells=True)
 
     ws2 = workbook.create_sheet("Satovi")
     _write_xlsx_sheet(
         ws2,
         [f"Popis satova - {school_class} - {subject_label}"],
-        ["Predmet", "Datum", "Sat", "Tema sata"],
+        ["Predmet", "Učitelj teorije", "Datum", "Sat", "Tema sata"],
         [
-            [subj.name, d.strftime("%d.%m.%Y."), f"{period}. sat", topic]
+            [
+                subj.name,
+                _theory_label(school_class, subj),
+                d.strftime("%d.%m.%Y."),
+                f"{period}. sat",
+                topic,
+            ]
             for subj, d, period, topic in topics
         ],
     )

@@ -7,7 +7,7 @@ from django.utils.http import urlencode
 
 from . import constants, lesson_service
 from .forms import LessonPickerForm
-from .models import Lesson, Student
+from .models import Lesson, Student, theory_teacher_for
 from .permissions import can_edit_lesson, can_edit_note, can_set_justified
 
 VALID_GROUP_LABELS = {code for code, _ in constants.GROUP_CHOICES}
@@ -261,6 +261,7 @@ def _render_sat_screen(
         "group_label": group_label,
         "group_choices": constants.GROUP_CHOICES,
         "has_groups": has_groups,
+        "theory_teacher": theory_teacher_for(school_class, subject),
         "previous_lesson": previous_lesson,
         "copy_source": copy_source,
         "copy_url": (

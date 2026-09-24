@@ -57,6 +57,48 @@ class Subject(models.Model):
         return self.name
 
 
+class ClassSubject(models.Model):
+    """Who teaches the theory of a subject in a class. Practical lessons are
+    entered by many teachers; attendance for the subject is reported to this
+    person. Name + e-mail are plain text (not a user account) because theory
+    teachers don't necessarily use this app."""
+
+    school_class = models.ForeignKey(
+        SchoolClass, on_delete=models.CASCADE, related_name="class_subjects"
+    )
+    subject = models.ForeignKey(
+        Subject, on_delete=models.CASCADE, related_name="class_subjects"
+    )
+    theory_teacher_name = models.CharField(
+        max_length=150, blank=True, verbose_name="Učitelj teorije (ime i prezime)"
+    )
+    theory_teacher_email = models.EmailField(blank=True, verbose_name="E-mail učitelja teorije")
+
+    class Meta:
+        unique_together = ("school_class", "subject")
+        ordering = ["subject__name"]
+        verbose_name = "Predmet razreda"
+        verbose_name_plural = "Predmeti razreda (učitelj teorije)"
+
+    def __str__(self):
+        return f"{self.school_class} - {self.subject}: {self.theory_teacher_name}"
+
+    @property
+    def theory_teacher_label(self):
+        if self.theory_teacher_name and self.theory_teacher_email:
+            return f"{self.theory_teacher_name} ({self.theory_teacher_email})"
+        return self.theory_teacher_name or self.theory_teacher_email
+
+
+def theory_teacher_for(school_class, subject):
+    """The ClassSubject row for this class+subject if a theory teacher is
+    set, else None."""
+    row = ClassSubject.objects.filter(school_class=school_class, subject=subject).first()
+    if row and row.theory_teacher_label:
+        return row
+    return None
+
+
 class Student(models.Model):
     first_name = models.CharField(max_length=100, verbose_name="Ime")
     last_name = models.CharField(max_length=100, verbose_name="Prezime")

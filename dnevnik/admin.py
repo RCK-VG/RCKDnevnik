@@ -6,6 +6,7 @@ from . import constants
 from .models import (
     Attendance,
     AttendanceHistory,
+    ClassSubject,
     ExportLog,
     Lesson,
     Note,
@@ -39,12 +40,19 @@ class SchoolYearAdmin(admin.ModelAdmin):
     list_filter = ("is_active", "is_archived")
 
 
+class ClassSubjectInline(admin.TabularInline):
+    model = ClassSubject
+    extra = 1
+    autocomplete_fields = ("subject",)
+
+
 @admin.register(SchoolClass)
 class SchoolClassAdmin(admin.ModelAdmin):
     list_display = ("name", "school_year", "homeroom_teacher")
     list_filter = ("school_year",)
     search_fields = ("name",)
     autocomplete_fields = ("homeroom_teacher",)
+    inlines = [ClassSubjectInline]
 
 
 @admin.register(Subject)

@@ -6,6 +6,9 @@
     {{ date|date:"d.m.Y." }}
     {% if lesson %} · {{ lesson.teacher.get_full_name|default:lesson.teacher.username }}{% endif %}
 </p>
+{% if theory_teacher %}
+<p class="small mb-3"><strong>Teoriju drži:</strong> {{ theory_teacher.theory_teacher_label }}</p>
+{% endif %}
 
 {% if not can_edit %}
 <div class="alert alert-secondary py-2">Pregled tuđeg sata (samo za čitanje) - uređivati ga može samo {{ lesson.teacher.get_full_name|default:lesson.teacher.username }} ili administrator.</div>
