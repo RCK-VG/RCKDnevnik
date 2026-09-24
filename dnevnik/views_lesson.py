@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import urlencode
 
 from . import constants, lesson_service
 from .forms import LessonPickerForm
@@ -33,19 +34,26 @@ def otvori_sat(request):
     school_class = form.cleaned_data["razred"]
     subject = form.cleaned_data["predmet"]
     date = form.cleaned_data["datum"]
+    period = form.cleaned_data["sat"]
     group_label = _clean_group_label(form.cleaned_data.get("grupa", ""))
 
     lesson = Lesson.objects.filter(
-        school_class=school_class, subject=subject, date=date, teacher=request.user
+        school_class=school_class,
+        subject=subject,
+        date=date,
+        period=period,
+        teacher=request.user,
     ).first()
     if lesson:
         return _redirect_to_sat(lesson.id, group_label)
 
     if request.method == "POST":
-        lesson = _save_lesson(request, None, school_class, subject, date, group_label)
+        lesson = _save_lesson(request, None, school_class, subject, date, group_label, period)
         return _redirect_to_sat(lesson.id, group_label)
 
-    return _render_sat_screen(request, None, school_class, subject, date, group_label)
+    return _render_sat_screen(
+        request, None, school_class, subject, date, group_label, period=period
+    )
 
 
 @login_required
@@ -67,7 +75,14 @@ def sat(request, pk):
 
     group_label = _clean_group_label(request.GET.get("grupa", ""))
     return _render_sat_screen(
-        request, lesson, lesson.school_class, lesson.subject, lesson.date, group_label, can_edit
+        request,
+        lesson,
+        lesson.school_class,
+        lesson.subject,
+        lesson.date,
+        group_label,
+        can_edit,
+        period=lesson.period,
     )
 
 
@@ -85,7 +100,7 @@ def _group_students(school_class, group_label):
     return students
 
 
-def _save_lesson(request, lesson, school_class, subject, date, group_label):
+def _save_lesson(request, lesson, school_class, subject, date, group_label, period=1):
     topic = request.POST.get("tema", "").strip()
 
     if lesson is None:
@@ -94,6 +109,7 @@ def _save_lesson(request, lesson, school_class, subject, date, group_label):
             subject=subject,
             teacher=request.user,
             date=date,
+            period=period,
             topic=topic,
         )
     elif lesson.topic != topic:
@@ -129,7 +145,39 @@ def _note_context(note, user, can_edit_overall):
     }
 
 
-def _render_sat_screen(request, lesson, school_class, subject, date, group_label="", can_edit=True):
+def _previous_lesson(school_class, date, period, teacher):
+    """The same teacher's closest earlier hour for this class on this day
+    (e.g. the 2nd hour of a block, when entering the 3rd) - the source for
+    the "Kopiraj prisutnost" button."""
+    return (
+        Lesson.objects.filter(
+            school_class=school_class, date=date, teacher=teacher, period__lt=period
+        )
+        .select_related("subject")
+        .order_by("-period")
+        .first()
+    )
+
+
+def _lesson_query_url(lesson, school_class, subject, date, period, group_label, copy_id=None):
+    params = {}
+    if lesson is None:
+        params.update(
+            razred=school_class.id, predmet=subject.id, datum=date.isoformat(), sat=period
+        )
+        base = reverse("otvori_sat")
+    else:
+        base = reverse("sat", kwargs={"pk": lesson.id})
+    if group_label:
+        params["grupa"] = group_label
+    if copy_id:
+        params["kopiraj"] = copy_id
+    return f"{base}?{urlencode(params)}" if params else base
+
+
+def _render_sat_screen(
+    request, lesson, school_class, subject, date, group_label="", can_edit=True, period=1
+):
     from .models import Attendance, Note
 
     students = _group_students(school_class, group_label)
@@ -152,9 +200,30 @@ def _render_sat_screen(request, lesson, school_class, subject, date, group_label
             .first()
         )
 
+    # "Kopiraj prisutnost s prethodnog sata": prefills the statuses shown on
+    # screen from an earlier hour of the same day; nothing is saved until
+    # the teacher clicks Spremi (so single students can still be adjusted).
+    previous_lesson = None
+    copy_source = None
+    if can_edit:
+        teacher = lesson.teacher if lesson is not None else request.user
+        previous_lesson = _previous_lesson(school_class, date, period, teacher)
+        copy_id = request.GET.get("kopiraj", "")
+        if copy_id.isdigit():
+            copy_source = Lesson.objects.filter(
+                pk=int(copy_id), school_class=school_class, date=date
+            ).first()
+            if copy_source is not None and lesson is not None and copy_source.pk == lesson.pk:
+                copy_source = None
+    copied_attendance = {}
+    if copy_source is not None:
+        copied_attendance = {
+            a.student_id: a for a in Attendance.objects.filter(lesson=copy_source)
+        }
+
     rows = []
     for student in students:
-        attendance = attendance_by_student.get(student.id)
+        attendance = copied_attendance.get(student.id) or attendance_by_student.get(student.id)
         rows.append(
             {
                 "student": student,
@@ -179,6 +248,7 @@ def _render_sat_screen(request, lesson, school_class, subject, date, group_label
         "school_class": school_class,
         "subject": subject,
         "date": date,
+        "period": period,
         "rows": rows,
         "general_note": _note_context(general_note, request.user, can_edit),
         "can_edit": can_edit,
@@ -191,5 +261,17 @@ def _render_sat_screen(request, lesson, school_class, subject, date, group_label
         "group_label": group_label,
         "group_choices": constants.GROUP_CHOICES,
         "has_groups": has_groups,
+        "previous_lesson": previous_lesson,
+        "copy_source": copy_source,
+        "copy_url": (
+            _lesson_query_url(
+                lesson, school_class, subject, date, period, group_label, previous_lesson.id
+            )
+            if previous_lesson
+            else ""
+        ),
+        "cancel_copy_url": _lesson_query_url(
+            lesson, school_class, subject, date, period, group_label
+        ),
     }
     return render(request, "dnevnik/sat.html", context)

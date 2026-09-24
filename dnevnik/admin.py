@@ -106,7 +106,7 @@ class AttendanceInline(admin.TabularInline):
 
 @admin.register(Lesson)
 class LessonAdmin(admin.ModelAdmin):
-    list_display = ("date", "school_class", "subject", "teacher", "topic")
+    list_display = ("date", "period", "school_class", "subject", "teacher", "topic")
     list_filter = ("school_class__school_year", "school_class", "subject", "teacher")
     search_fields = ("topic",)
     date_hierarchy = "date"

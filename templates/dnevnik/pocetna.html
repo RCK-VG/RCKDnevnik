@@ -25,7 +25,7 @@
     {% for lesson in recent_lessons %}
     <a href="{% url 'sat' pk=lesson.id %}" class="list-group-item list-group-item-action">
         <div class="d-flex justify-content-between">
-            <strong>{{ lesson.school_class }} - {{ lesson.subject }}</strong>
+            <strong>{{ lesson.school_class }} - {{ lesson.subject }} ({{ lesson.period }}. sat)</strong>
             <span class="text-muted">{{ lesson.date|date:"d.m.Y." }}</span>
         </div>
         {% if lesson.topic %}<div class="small text-muted">{{ lesson.topic }}</div>{% endif %}

@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from . import constants
@@ -96,18 +97,26 @@ class Lesson(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="lessons"
     )
     date = models.DateField()
+    # School hour of the day (1., 2., ...). A block of three hours is entered
+    # as three lessons (periods 1-3), so a student's attendance can differ
+    # between the hours of the same block.
+    period = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(constants.MAX_PERIOD)],
+        verbose_name="Sat u danu",
+    )
     topic = models.CharField(max_length=255, blank=True, verbose_name="Tema sata")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ("school_class", "subject", "date", "teacher")
-        ordering = ["-date", "-created_at"]
+        unique_together = ("school_class", "subject", "date", "period", "teacher")
+        ordering = ["-date", "-period", "-created_at"]
         verbose_name = "Nastavni sat"
         verbose_name_plural = "Nastavni satovi"
 
     def __str__(self):
-        return f"{self.school_class} - {self.subject} - {self.date}"
+        return f"{self.school_class} - {self.subject} - {self.date} ({self.period}. sat)"
 
 
 class Attendance(models.Model):

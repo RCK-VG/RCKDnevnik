@@ -92,18 +92,20 @@ def attendance_matrix_data(school_class, subject, datum_od, datum_do):
     if datum_do:
         lessons_qs = lessons_qs.filter(date__lte=datum_do)
     lessons = list(
-        lessons_qs.select_related("subject").order_by("subject__name", "date", "created_at")
+        lessons_qs.select_related("subject").order_by(
+            "subject__name", "date", "period", "created_at"
+        )
     )
 
-    # Columns are (subject, date) pairs, in that order - so with "svi
-    # predmeti" the table naturally groups all of one subject's dates
-    # together before moving to the next subject.
+    # Columns are (subject, date, school hour), in that order - so with "svi
+    # predmeti" the table naturally groups all of one subject's dates (and
+    # the hours of a block) together before moving to the next subject.
     columns = []
     lessons_by_column = {}
     for lesson in lessons:
-        key = (lesson.subject_id, lesson.date)
+        key = (lesson.subject_id, lesson.date, lesson.period)
         if key not in lessons_by_column:
-            columns.append((lesson.subject, lesson.date))
+            columns.append((lesson.subject, lesson.date, lesson.period))
         lessons_by_column.setdefault(key, []).append(lesson)
 
     students = Student.objects.filter(school_class=school_class, is_archived=False)
@@ -116,21 +118,21 @@ def attendance_matrix_data(school_class, subject, datum_od, datum_do):
     show_subject_in_header = subject is None
     header = ["Učenik"] + [
         (
-            f"{subj.name}\n{d.strftime('%d.%m.%Y.')}"
+            f"{subj.name}\n{d.strftime('%d.%m.%Y.')}\n{period}. sat"
             if show_subject_in_header
-            else d.strftime("%d.%m.%Y.")
+            else f"{d.strftime('%d.%m.%Y.')}\n{period}. sat"
         )
-        for subj, d in columns
+        for subj, d, period in columns
     ]
 
     rows = []
     for student in students:
         row = [student.full_name]
-        for subj, d in columns:
-            # If more than one lesson lands on the same subject+date (e.g. a
-            # covering teacher), the most recently created one wins.
+        for subj, d, period in columns:
+            # If more than one lesson lands on the same subject+date+hour
+            # (e.g. a covering teacher), the most recently created one wins.
             cell = ""
-            for lesson in lessons_by_column[(subj.id, d)]:
+            for lesson in lessons_by_column[(subj.id, d, period)]:
                 attendance = attendance_by_key.get((student.id, lesson.id))
                 if attendance is not None:
                     cell = _attendance_cell(attendance)
@@ -138,8 +140,13 @@ def attendance_matrix_data(school_class, subject, datum_od, datum_do):
         rows.append(row)
 
     topics = [
-        (subj, d, "; ".join(l.topic for l in lessons_by_column[(subj.id, d)] if l.topic))
-        for subj, d in columns
+        (
+            subj,
+            d,
+            period,
+            "; ".join(l.topic for l in lessons_by_column[(subj.id, d, period)] if l.topic),
+        )
+        for subj, d, period in columns
     ]
     return header, rows, topics
 
@@ -165,8 +172,11 @@ def respond_attendance_matrix(user, school_class, subject, datum_od, datum_do, f
     _write_xlsx_sheet(
         ws2,
         [f"Popis satova - {school_class} - {subject_label}"],
-        ["Predmet", "Datum", "Tema sata"],
-        [[subj.name, d.strftime("%d.%m.%Y."), topic] for subj, d, topic in topics],
+        ["Predmet", "Datum", "Sat", "Tema sata"],
+        [
+            [subj.name, d.strftime("%d.%m.%Y."), f"{period}. sat", topic]
+            for subj, d, period, topic in topics
+        ],
     )
 
     notes_header, notes_rows = notes_data(school_class, subject, None, datum_od, datum_do)
@@ -255,12 +265,23 @@ def notes_data(school_class, subject, teacher, datum_od, datum_do):
         notes_qs = notes_qs.filter(lesson__date__gte=datum_od)
     if datum_do:
         notes_qs = notes_qs.filter(lesson__date__lte=datum_do)
-    notes_qs = notes_qs.order_by("lesson__date", "created_at")
+    notes_qs = notes_qs.order_by("lesson__date", "lesson__period", "created_at")
 
-    header = ["Datum", "Razred", "Predmet", "Tema sata", "Učenik", "Tekst", "Autor", "Vrijeme unosa"]
+    header = [
+        "Datum",
+        "Sat",
+        "Razred",
+        "Predmet",
+        "Tema sata",
+        "Učenik",
+        "Tekst",
+        "Autor",
+        "Vrijeme unosa",
+    ]
     rows = [
         [
             n.lesson.date.strftime("%d.%m.%Y."),
+            f"{n.lesson.period}. sat",
             n.lesson.school_class.name,
             n.lesson.subject.name,
             n.lesson.topic,
@@ -348,10 +369,11 @@ def respond_full_export(user):
     _write_xlsx_sheet(
         ws,
         _meta_lines(user, "Potpuni izvoz - Nastavni satovi"),
-        ["Datum", "Razred", "Predmet", "Nastavnik", "Tema sata"],
+        ["Datum", "Sat", "Razred", "Predmet", "Nastavnik", "Tema sata"],
         [
             [
                 l.date.strftime("%d.%m.%Y."),
+                l.period,
                 l.school_class.name,
                 l.subject.name,
                 _display_name(l.teacher),
@@ -367,10 +389,11 @@ def respond_full_export(user):
     _write_xlsx_sheet(
         ws,
         _meta_lines(user, "Potpuni izvoz - Prisutnost"),
-        ["Datum", "Razred", "Predmet", "Učenik", "Status", "Opravdano"],
+        ["Datum", "Sat", "Razred", "Predmet", "Učenik", "Status", "Opravdano"],
         [
             [
                 a.lesson.date.strftime("%d.%m.%Y."),
+                a.lesson.period,
                 a.lesson.school_class.name,
                 a.lesson.subject.name,
                 a.student.full_name,
@@ -379,7 +402,7 @@ def respond_full_export(user):
             ]
             for a in Attendance.objects.select_related(
                 "lesson__school_class", "lesson__subject", "student"
-            ).order_by("lesson__date")
+            ).order_by("lesson__date", "lesson__period")
         ],
     )
 

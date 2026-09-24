@@ -140,6 +140,14 @@ class LessonPickerForm(forms.Form):
         initial=timezone.localdate,
         widget=forms.DateInput(attrs={"type": "date"}),
     )
+    sat = forms.TypedChoiceField(
+        label="Sat u danu",
+        choices=[(i, f"{i}. sat") for i in range(1, constants.MAX_PERIOD + 1)],
+        coerce=int,
+        empty_value=1,
+        initial=1,
+        required=False,
+    )
     grupa = forms.ChoiceField(
         label="Grupa",
         choices=[("", "Cijeli razred")] + list(constants.GROUP_CHOICES),

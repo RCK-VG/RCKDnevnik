@@ -34,6 +34,7 @@
         <thead>
             <tr>
                 <th>Datum</th>
+                <th>Sat</th>
                 <th>Razred</th>
                 <th>Predmet</th>
                 <th>Nastavnik</th>
@@ -44,13 +45,14 @@
         {% for lesson in page_obj %}
             <tr>
                 <td><a href="{% url 'sat' pk=lesson.id %}">{{ lesson.date|date:"d.m.Y." }}</a></td>
+                <td>{{ lesson.period }}. sat</td>
                 <td>{{ lesson.school_class }}</td>
                 <td>{{ lesson.subject }}</td>
                 <td>{{ lesson.teacher.get_full_name|default:lesson.teacher.username }}</td>
                 <td>{{ lesson.topic }}</td>
             </tr>
         {% empty %}
-            <tr><td colspan="5" class="text-muted">Nema satova za odabrani filter.</td></tr>
+            <tr><td colspan="6" class="text-muted">Nema satova za odabrani filter.</td></tr>
         {% endfor %}
         </tbody>
     </table>

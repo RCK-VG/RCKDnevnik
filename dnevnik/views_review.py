@@ -22,7 +22,7 @@ def _apply_attendance_filters(qs, form):
 def svi_satovi(request):
     filter_form = LessonFilterForm(request.GET or None)
     lessons = Lesson.objects.select_related("school_class", "subject", "teacher").order_by(
-        "-date", "-created_at"
+        "-date", "-period", "-created_at"
     )
     if filter_form.is_valid():
         if filter_form.cleaned_data.get("razred"):
@@ -94,7 +94,7 @@ def ucenik_profil(request, pk):
         "lesson__subject", "lesson__teacher"
     )
     attendance_qs = _apply_attendance_filters(attendance_qs, filter_form)
-    attendance_qs = attendance_qs.order_by("-lesson__date", "-lesson__created_at")
+    attendance_qs = attendance_qs.order_by("-lesson__date", "-lesson__period", "-lesson__created_at")
 
     summary = attendance_qs.aggregate(**stats_aggregate_kwargs())
 

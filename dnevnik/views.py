@@ -10,7 +10,7 @@ def pocetna(request):
     recent_lessons = (
         Lesson.objects.filter(teacher=request.user)
         .select_related("school_class", "subject")
-        .order_by("-date", "-created_at")[:10]
+        .order_by("-date", "-period", "-created_at")[:10]
     )
     return render(
         request,

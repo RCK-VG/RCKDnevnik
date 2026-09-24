@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ school_class }} - {{ subject }}{% endblock %}
 {% block content %}
-<h1 class="h5 mb-1">{{ school_class }} · {{ subject }}</h1>
+<h1 class="h5 mb-1">{{ school_class }} · {{ subject }} · {{ period }}. sat</h1>
 <p class="text-muted">
     {{ date|date:"d.m.Y." }}
     {% if lesson %} · {{ lesson.teacher.get_full_name|default:lesson.teacher.username }}{% endif %}
@@ -9,6 +9,18 @@
 
 {% if not can_edit %}
 <div class="alert alert-secondary py-2">Pregled tuđeg sata (samo za čitanje) - uređivati ga može samo {{ lesson.teacher.get_full_name|default:lesson.teacher.username }} ili administrator.</div>
+{% endif %}
+
+{% if can_edit and copy_source %}
+<div class="alert alert-warning py-2">
+    Prikazana je prisutnost <strong>prekopirana s {{ copy_source.period }}. sata</strong> ({{ copy_source.subject }}) -
+    prilagodi pojedine učenike pa klikni <strong>Spremi</strong>. Ništa nije spremljeno dok ne klikneš Spremi.
+    <a href="{{ cancel_copy_url }}">Odustani od kopiranja</a>
+</div>
+{% elif can_edit and previous_lesson %}
+<div class="mb-3">
+    <a href="{{ copy_url }}" class="btn btn-outline-primary btn-sm">Kopiraj prisutnost s {{ previous_lesson.period }}. sata ({{ previous_lesson.subject }})</a>
+</div>
 {% endif %}
 
 {% if group_label %}
@@ -32,6 +44,7 @@
         <input type="hidden" name="razred" value="{{ school_class.id }}">
         <input type="hidden" name="predmet" value="{{ subject.id }}">
         <input type="hidden" name="datum" value="{{ date|date:'Y-m-d' }}">
+        <input type="hidden" name="sat" value="{{ period }}">
     {% endif %}
 
     <div class="mb-3">
