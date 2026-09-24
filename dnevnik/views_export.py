@@ -3,6 +3,7 @@ from django.shortcuts import render
 
 from . import exports
 from .forms import ExportFilterForm, MatrixExportForm
+from .models import ClassSubject
 from .permissions import admin_required, is_admin
 
 
@@ -24,7 +25,25 @@ def izvoz_prisutnost(request):
             data["datum_do"],
             data["format"],
         )
-    return render(request, "dnevnik/izvoz_prisutnost.html", {"form": form})
+    # For the "Preuzmi i otvori Gmail" button: theory teacher e-mail per
+    # class+subject, so the browser can fill in the recipient without a
+    # round trip. Only rows with an e-mail address are useful here.
+    theory_map = {
+        f"{cs.school_class_id}-{cs.subject_id}": {
+            "name": cs.theory_teacher_name,
+            "email": cs.theory_teacher_email,
+        }
+        for cs in ClassSubject.objects.exclude(theory_teacher_email="")
+    }
+    return render(
+        request,
+        "dnevnik/izvoz_prisutnost.html",
+        {
+            "form": form,
+            "theory_map": theory_map,
+            "sender_name": request.user.get_full_name() or request.user.username,
+        },
+    )
 
 
 @login_required

@@ -9,7 +9,7 @@
     "Satovi" (teme) i "Bilješke" (za isti razred/predmet/razdoblje) - sve na jednom mjestu,
     npr. za slanje razredniku.
 </p>
-<form method="get" class="card card-body">
+<form method="get" class="card card-body" id="izvoz-form">
     <div class="mb-3">
         <label class="form-label">{{ form.razred.label }}</label>
         {{ form.razred }}
@@ -35,5 +35,64 @@
         {{ form.format }}
     </div>
     <button type="submit" class="btn btn-primary btn-lg-block">Preuzmi izvoz</button>
+    <button type="button" id="gmail-btn" class="btn btn-outline-primary mt-2">Preuzmi i otvori Gmail</button>
+    <div id="gmail-hint" class="form-text mt-1">
+        Preuzme Excel i otvori Gmail s adresom učitelja teorije - ti samo priložiš preuzetu datoteku i klikneš Send.
+        Radi kad je odabran razred i jedan predmet kojem je unesen e-mail učitelja teorije.
+    </div>
 </form>
+
+{{ theory_map|json_script:"theory-map" }}
+{{ sender_name|json_script:"sender-name" }}
+<script>
+(function () {
+    const form = document.getElementById("izvoz-form");
+    const btn = document.getElementById("gmail-btn");
+    const map = JSON.parse(document.getElementById("theory-map").textContent);
+    const sender = JSON.parse(document.getElementById("sender-name").textContent);
+    const razred = document.getElementById("id_razred");
+    const predmet = document.getElementById("id_predmet");
+    const datumOd = document.getElementById("id_datum_od");
+    const datumDo = document.getElementById("id_datum_do");
+
+    function recipient() {
+        return map[razred.value + "-" + predmet.value] || null;
+    }
+    function fmt(iso) {
+        if (!iso) return "";
+        const p = iso.split("-");
+        return p[2] + "." + p[1] + "." + p[0] + ".";
+    }
+    function optionText(sel) {
+        return sel.options[sel.selectedIndex].text;
+    }
+    function refresh() {
+        btn.disabled = !recipient();
+    }
+    razred.addEventListener("change", refresh);
+    predmet.addEventListener("change", refresh);
+    refresh();
+
+    btn.addEventListener("click", function () {
+        const r = recipient();
+        if (!r || !form.reportValidity()) return;
+        const razredText = optionText(razred).replace(/\s*\(.*\)$/, "");
+        const predmetText = optionText(predmet);
+        const period = (datumOd.value || datumDo.value)
+            ? "razdoblje " + (fmt(datumOd.value) || "...") + " - " + (fmt(datumDo.value) || "...")
+            : "cijelo razdoblje";
+        const subject = "Prisutnost " + razredText + ", " + predmetText + " (" + period + ")";
+        const body = "Poštovani/a" + (r.name ? " " + r.name : "") + ",\n\n"
+            + "u privitku šaljem evidenciju prisutnosti za predmet " + predmetText
+            + ", razred " + razredText + ", " + period + (period.endsWith(".") ? "" : ".") + "\n\n"
+            + "Lijep pozdrav,\n" + sender;
+        const url = "https://mail.google.com/mail/?view=cm&fs=1"
+            + "&to=" + encodeURIComponent(r.email)
+            + "&su=" + encodeURIComponent(subject)
+            + "&body=" + encodeURIComponent(body);
+        window.open(url, "_blank");
+        form.submit();
+    });
+})();
+</script>
 {% endblock %}

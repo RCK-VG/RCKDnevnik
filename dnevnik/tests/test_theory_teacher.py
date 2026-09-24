@@ -104,3 +104,41 @@ class TheoryTeacherAdminTests(TestCase):
         response = self.client.get(f"/admin/dnevnik/schoolclass/{school_class.id}/change/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Učitelj teorije")
+
+
+class GmailButtonTests(TestCase):
+    def setUp(self):
+        self.teacher = make_user("nastavnik1", first_name="Ana", last_name="Anić")
+        school_year = SchoolYear.objects.create(name="2025./2026.", is_active=True)
+        self.school_class = SchoolClass.objects.create(name="1.a", school_year=school_year)
+        self.subject = Subject.objects.create(name="Informatika")
+        self.other_subject = Subject.objects.create(name="Fizika")
+        ClassSubject.objects.create(
+            school_class=self.school_class,
+            subject=self.subject,
+            theory_teacher_name="Marko Marić",
+            theory_teacher_email="marko@skola.hr",
+        )
+        ClassSubject.objects.create(
+            school_class=self.school_class,
+            subject=self.other_subject,
+            theory_teacher_name="Bez Maila",
+        )
+        self.client.login(username="nastavnik1", password="x")
+
+    def test_page_has_gmail_button_and_recipient_map(self):
+        response = self.client.get(reverse("izvoz_prisutnost"))
+        self.assertContains(response, "Preuzmi i otvori Gmail")
+        theory_map = response.context["theory_map"]
+        key = f"{self.school_class.id}-{self.subject.id}"
+        self.assertEqual(theory_map[key], {"name": "Marko Marić", "email": "marko@skola.hr"})
+
+    def test_subjects_without_email_are_not_in_the_map(self):
+        response = self.client.get(reverse("izvoz_prisutnost"))
+        self.assertNotIn(
+            f"{self.school_class.id}-{self.other_subject.id}", response.context["theory_map"]
+        )
+
+    def test_sender_name_is_passed_for_the_mail_body(self):
+        response = self.client.get(reverse("izvoz_prisutnost"))
+        self.assertEqual(response.context["sender_name"], "Ana Anić")
