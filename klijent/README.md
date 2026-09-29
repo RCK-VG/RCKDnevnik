@@ -35,8 +35,14 @@ Na Pi-ju, u mapi `~/dnevnik`, otvori `.env` (`nano .env`) i dodaj:
 
 ```
 NADZOR_API_KEY=<dugi nasumični niz>
-NADZOR_HOST=<IP adresa Pi-ja u školskoj mreži, npr. 192.168.1.50>
+NADZOR_HOST=<ime ili IP adresa Pi-ja, npr. alatisssvg.local ili 192.168.1.50>
 ```
+
+**Ako ruter dodjeljuje adrese sam (DHCP) i Pi nema stalnu adresu**, koristi
+ime `<ime-pi-ja>.local` (ime vidiš naredbom `hostname`). Certifikat i
+`config.json` tada glase na ime, pa promjena adrese ništa ne kvari. To ime
+dodaj i u `ALLOWED_HOSTS`. Prije toga na jednom učeničkom računalu provjeri
+da se ime prepoznaje: `ping <ime-pi-ja>.local` mora odgovoriti.
 
 Ključ generiraj naredbom:
 
@@ -68,7 +74,7 @@ docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt klijent/rck-c
 docker compose exec -T web python manage.py nadzor_klijent_config --url https://192.168.1.50:8443 > klijent/config.json
 ```
 
-(Umjesto `192.168.1.50` upiši isti `NADZOR_HOST`.) Naredba uzme ključ iz
+(Umjesto `192.168.1.50` upiši isti `NADZOR_HOST`, npr. `alatisssvg.local`.) Naredba uzme ključ iz
 `.env`, pa je ključ na jednom mjestu. Ako ga promijeniš, ponovi ovaj korak i
 instalaciju na računalima.
 
