@@ -164,6 +164,8 @@ BACKUP_KEEP = int(os.environ.get("BACKUP_KEEP", "14"))
 NADZOR_API_KEY = os.environ.get("NADZOR_API_KEY", "").strip()
 NADZOR_TOKEN_DAYS = int(os.environ.get("NADZOR_TOKEN_DAYS", "7"))
 NADZOR_PRIJAVA_MAX_POKUSAJA = int(os.environ.get("NADZOR_PRIJAVA_MAX_POKUSAJA", "30"))
+# A login counts as active this long after the last heartbeat (duplicate check).
+NADZOR_AKTIVNOST_MINUTA = int(os.environ.get("NADZOR_AKTIVNOST_MINUTA", "5"))
 
 # Do not leak personal data (names, notes) into logs - keep Django's default
 # logging (errors to console) and avoid custom request/body logging.

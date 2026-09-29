@@ -65,7 +65,12 @@
                     {% endif %}
                 </td>
                 <td>{{ log.class_name }}</td>
-                <td>{{ log.last_name }} {{ log.first_name }}</td>
+                <td>
+                    {% if log.identified %}{{ log.last_name }} {{ log.first_name }}
+                    {% else %}<span class="badge bg-warning text-dark">neidentificiran</span>
+                        {% if log.last_name or log.first_name %}<div class="text-muted">upisano: {{ log.first_name }} {{ log.last_name }}</div>{% endif %}
+                    {% endif %}
+                </td>
                 <td>{{ log.computer_name }}</td>
                 <td>{{ log.event_type }}</td>
                 <td class="text-break">{{ log.details|linebreaksbr }}</td>

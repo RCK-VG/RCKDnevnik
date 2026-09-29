@@ -125,6 +125,7 @@ def _csv_response(request, form, logs):
         "Računalo",
         "Vrsta",
         "Detalji",
+        "Identificiran",
     ]
     rows = [
         [
@@ -136,6 +137,7 @@ def _csv_response(request, form, logs):
             log.computer_name,
             log.event_type,
             log.details,
+            "da" if log.identified else "ne",
         ]
         for log in logs.iterator()
     ]

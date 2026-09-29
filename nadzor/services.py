@@ -5,7 +5,9 @@ import hashlib
 import re
 import secrets
 import unicodedata
+from datetime import timedelta
 
+from django.conf import settings
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
@@ -20,6 +22,7 @@ MAX_EVENT_TYPE_LEN = 100
 MAX_DETAILS_LEN = 2000
 
 LOGIN_EVENT = "PRIJAVA"
+LOGOUT_EVENT = "ODJAVA"
 
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
@@ -90,9 +93,37 @@ def hash_token(token):
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def start_session(student, computer_name):
+def _active_sessions(student, now=None):
+    now = now or timezone.now()
+    return ComputerSession.objects.filter(
+        student=student,
+        ended_at__isnull=True,
+        last_seen_at__gte=now - timedelta(minutes=settings.NADZOR_AKTIVNOST_MINUTA),
+        created_at__gte=now - timedelta(days=settings.NADZOR_TOKEN_DAYS),
+    )
+
+
+def active_session_elsewhere(student, computer_name):
+    """An active session of this student on a DIFFERENT computer, or None.
+    Active = not logged off and a heartbeat within NADZOR_AKTIVNOST_MINUTA."""
+    for session in _active_sessions(student):
+        if session.computer_name.casefold() != computer_name.casefold():
+            return session
+    return None
+
+
+def start_session(student, computer_name, late=False, already_ended=False):
     """Creates a session and its PRIJAVA log; returns (session, plain token).
-    The plain token is only ever returned here - the DB keeps the hash."""
+    The plain token is only ever returned here - the DB keeps the hash.
+
+    late: a login typed while the server was down and confirmed only now -
+    it may overlap other sessions; already_ended closes it right away."""
+    now = timezone.now()
+    if not late:
+        # Logging in again on the same computer replaces the previous session.
+        for old in _active_sessions(student, now):
+            if old.computer_name.casefold() == computer_name.casefold():
+                end_session(old)
     token = secrets.token_urlsafe(32)
     session = ComputerSession.objects.create(
         token_hash=hash_token(token),
@@ -101,9 +132,25 @@ def start_session(student, computer_name):
         last_name=student.last_name,
         class_name=student.school_class.name,
         computer_name=computer_name,
+        ended_at=now if already_ended else None,
     )
-    save_logs(session, computer_name, [{"vrsta": LOGIN_EVENT, "detalji": ""}])
+    details = "naknadno potvrđena prijava (server nije radio)" if late else ""
+    save_logs(session, computer_name, [{"vrsta": LOGIN_EVENT, "detalji": details}])
     return session, token
+
+
+def end_session(session):
+    """Logoff: frees the student to log in on another computer at once."""
+    if session.ended_at is not None:
+        return
+    save_logs(session, session.computer_name, [{"vrsta": LOGOUT_EVENT, "detalji": ""}])
+    now = timezone.now()
+    ComputerSession.objects.filter(pk=session.pk).update(ended_at=now)
+    session.ended_at = now
+
+
+def heartbeat(session):
+    ComputerSession.objects.filter(pk=session.pk).update(last_seen_at=timezone.now())
 
 
 def session_for_token(token):
@@ -134,12 +181,7 @@ class InvalidEvent(ValueError):
     pass
 
 
-def save_logs(session, computer_name, events):
-    """Stores events for a session. Each event is a dict with "vrsta"
-    (required), "detalji" and "vrijeme" (client ISO time, optional).
-    Raises InvalidEvent before saving anything if any event is invalid."""
-    computer = clean_line(computer_name, MAX_COMPUTER_LEN) or session.computer_name
-    search_name = normalize_name(f"{session.last_name} {session.first_name}")
+def _build_logs(events, **fields):
     rows = []
     for index, event in enumerate(events, start=1):
         if not isinstance(event, dict):
@@ -149,18 +191,49 @@ def save_logs(session, computer_name, events):
             raise InvalidEvent(f"Zapis {index} nema vrstu događaja.")
         rows.append(
             ActivityLog(
-                session=session,
-                student_id=session.student_id,
-                first_name=session.first_name,
-                last_name=session.last_name,
-                class_name=session.class_name,
-                computer_name=computer,
                 event_type=event_type,
                 details=clean_text(event.get("detalji"), MAX_DETAILS_LEN),
                 client_time=parse_client_time(event.get("vrijeme")),
-                search_name=search_name,
+                **fields,
             )
         )
+    return rows
+
+
+def save_logs(session, computer_name, events):
+    """Stores events for a session. Each event is a dict with "vrsta"
+    (required), "detalji" and "vrijeme" (client ISO time, optional).
+    Raises InvalidEvent before saving anything if any event is invalid."""
+    rows = _build_logs(
+        events,
+        session=session,
+        student_id=session.student_id,
+        first_name=session.first_name,
+        last_name=session.last_name,
+        class_name=session.class_name,
+        computer_name=clean_line(computer_name, MAX_COMPUTER_LEN) or session.computer_name,
+        search_name=normalize_name(f"{session.last_name} {session.first_name}"),
+    )
     ActivityLog.objects.bulk_create(rows)
     ComputerSession.objects.filter(pk=session.pk).update(last_seen_at=timezone.now())
+    return len(rows)
+
+
+def save_unidentified_logs(computer_name, typed, events):
+    """Events from a computer where nobody valid was logged in. `typed` is
+    what the student typed in the login window (class/first/last), possibly
+    empty; it is kept for the teacher but NOT treated as the student."""
+    typed = typed if isinstance(typed, dict) else {}
+    first = clean_line(typed.get("ime"), MAX_NAME_LEN)
+    last = clean_line(typed.get("prezime"), MAX_NAME_LEN)
+    rows = _build_logs(
+        events,
+        identified=False,
+        first_name=first,
+        last_name=last,
+        class_name=clean_line(typed.get("razred"), MAX_CLASS_LEN),
+        computer_name=clean_line(computer_name, MAX_COMPUTER_LEN),
+        search_name=normalize_name(f"{last} {first}"),
+    )
+    ActivityLog.objects.bulk_create(rows)
     return len(rows)

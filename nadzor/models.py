@@ -27,7 +27,12 @@ class ComputerSession(models.Model):
     class_name = models.CharField(max_length=20)
     computer_name = models.CharField(max_length=64)
     created_at = models.DateTimeField(auto_now_add=True)
+    # Updated by every heartbeat/log; a session counts as "active" while this
+    # is recent and ended_at is empty (see services.active_session_elsewhere).
     last_seen_at = models.DateTimeField(auto_now=True)
+    # Set when the student logs off Windows (or right away for a login that
+    # was only confirmed after the fact, when the server was down).
+    ended_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -38,6 +43,8 @@ class ComputerSession(models.Model):
         return f"{self.last_name} {self.first_name} ({self.class_name}) @ {self.computer_name}"
 
     def is_valid(self, now=None):
+        """Token still accepted for sending logs (also after logoff, so the
+        offline queue can be flushed later)."""
         now = now or timezone.now()
         return now < self.created_at + timedelta(days=settings.NADZOR_TOKEN_DAYS)
 
@@ -80,6 +87,10 @@ class ActivityLog(models.Model):
     # Casefolded "prezime ime": SQLite only compares ASCII letters
     # case-insensitively, so searching "čolić" must use this column.
     search_name = models.CharField(max_length=210, db_index=True, editable=False)
+    # False when nobody (valid) was logged in on the computer: the student
+    # never logged in, or typed a name that turned out not to exist while the
+    # server was down. Names then hold whatever was typed (possibly nothing).
+    identified = models.BooleanField(default=True, verbose_name="Identificiran")
 
     class Meta:
         ordering = ["-received_at", "-id"]

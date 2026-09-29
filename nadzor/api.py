@@ -1,9 +1,9 @@
-"""JSON API used by the student-computer client (klijent/nadzor.ps1).
+"""JSON API used by the student-computer client (klijent/servis.ps1, which
+runs as SYSTEM on every student PC).
 
 Every endpoint requires the X-API-Key header (settings.NADZOR_API_KEY). The
-key lives in the client's config on every student PC and is readable by the
-logged-in student, so it only unlocks these three endpoints - never reading
-any logs back. See nadzor/services.py for the data side."""
+key only unlocks these endpoints - never reading any logs back. See
+nadzor/services.py for the data side."""
 
 import hmac
 import json
@@ -95,6 +95,12 @@ def prijava(request):
     if not (class_name and first_name and last_name and computer):
         return _error("Potrebni su razred, ime, prezime i naziv računala.", 400)
 
+    # "naknadno": login typed while the server was down, confirmed now by
+    # the client. It is not checked for duplicates (the moment has passed);
+    # "zavrsena" means the Windows session already ended meanwhile.
+    late = data.get("naknadno") is True
+    already_ended = late and data.get("zavrsena") is True
+
     matches = services.find_students(class_name, first_name, last_name)
     if not matches:
         cache.add(key, 0, FAILED_LOGIN_WINDOW_SECONDS)
@@ -104,10 +110,28 @@ def prijava(request):
             cache.set(key, 1, FAILED_LOGIN_WINDOW_SECONDS)
         return _error("Učenik nije pronađen. Provjeri razred, ime i prezime.", 404)
     if len(matches) > 1:
-        return _error("U razredu postoji više učenika s istim imenom - javi se nastavniku.", 409)
+        return _json(
+            {"greska": "U razredu postoji više učenika s istim imenom - javi se nastavniku.", "kod": "isto_ime"},
+            status=409,
+        )
 
     student = matches[0]
-    session, token = services.start_session(student, computer)
+    if not late:
+        other = services.active_session_elsewhere(student, computer)
+        if other is not None:
+            return _json(
+                {
+                    "greska": (
+                        f"{student.first_name} {student.last_name} ({student.school_class.name}) "
+                        f"već je prijavljen/a na računalu {other.computer_name}. "
+                        "Ako to nisi ti, javi se nastavniku."
+                    ),
+                    "kod": "vec_prijavljen",
+                    "racunalo": other.computer_name,
+                },
+                status=409,
+            )
+    session, token = services.start_session(student, computer, late=late, already_ended=already_ended)
     return _json(
         {
             "token": token,
@@ -117,18 +141,63 @@ def prijava(request):
     )
 
 
+def _session_from_body(request):
+    data, error = _read_json(request)
+    if error:
+        return None, None, error
+    session = services.session_for_token(data.get("token"))
+    if session is None:
+        return data, None, _error("Neispravan ili istekao token - potrebna je ponovna prijava.", 401)
+    return data, session, None
+
+
+@require_POST
+@api_key_required
+def zivost(request):
+    """Heartbeat while the student is logged in (keeps the session active
+    for the duplicate-login check)."""
+    data, session, error = _session_from_body(request)
+    if error:
+        return error
+    if session.ended_at is not None:
+        return _error("Ova prijava je završena.", 401)
+    services.heartbeat(session)
+    return _json({"ok": True})
+
+
+@require_POST
+@api_key_required
+def odjava(request):
+    """Student logged off Windows: ends the session so they can log in on
+    another computer straight away."""
+    data, session, error = _session_from_body(request)
+    if error:
+        return error
+    services.end_session(session)
+    return _json({"ok": True})
+
+
 @require_POST
 @api_key_required
 def zapisi(request):
     """Accepts one event ({"vrsta", "detalji", "vrijeme"} at the top level)
-    or many ({"zapisi": [...]}, used when flushing the offline queue)."""
+    or many ({"zapisi": [...]}, used when flushing the offline queue).
+
+    With a token the events belong to that login. Without one, the body must
+    say {"neidentificiran": {...what was typed, maybe empty...}} and the
+    events are stored as unidentified (nobody valid was logged in)."""
     data, error = _read_json(request)
     if error:
         return error
 
-    session = services.session_for_token(data.get("token"))
-    if session is None:
-        return _error("Neispravan ili istekao token - potrebna je ponovna prijava.", 401)
+    unidentified = "neidentificiran" in data and not data.get("token")
+    session = None
+    if not unidentified:
+        session = services.session_for_token(data.get("token"))
+        if session is None:
+            return _error("Neispravan ili istekao token - potrebna je ponovna prijava.", 401)
+    elif not services.clean_line(data.get("racunalo"), services.MAX_COMPUTER_LEN):
+        return _error("Potreban je naziv računala.", 400)
 
     if "zapisi" in data:
         events = data["zapisi"]
@@ -142,7 +211,12 @@ def zapisi(request):
         return _error(f"Najviše {MAX_EVENTS_PER_REQUEST} zapisa po zahtjevu.", 413)
 
     try:
-        count = services.save_logs(session, data.get("racunalo"), events)
+        if unidentified:
+            count = services.save_unidentified_logs(
+                data.get("racunalo"), data.get("neidentificiran"), events
+            )
+        else:
+            count = services.save_logs(session, data.get("racunalo"), events)
     except services.InvalidEvent as exc:
         return _error(str(exc), 400)
     return _json({"primljeno": count}, status=201)
