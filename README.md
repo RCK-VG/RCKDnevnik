@@ -443,10 +443,13 @@ satova.
 
 ## 13. Nadzor učeničkih računala
 
-Učenička računala (Windows) pri svakoj prijavi traže razred, ime i prezime pa
-periodički javljaju instalirane i pokrenute programe, nove mape u AppData,
-nove ikone na radnoj površini i promjenu pozadine. Zapisi se vide u izborniku
-**Nadzor** (admin i nastavnici kojima je to uključeno u profilu).
+Pri prijavi na učenički račun (Windows) prozor preko cijelog zaslona traži
+razred, ime i prezime; tko se ne prijavi u 2 minute, bude odjavljen. Servis
+(radi kao SYSTEM, učenik ga ne može ugasiti) zatim javlja instalirane i
+pokrenute programe, nove mape u AppData, nove ikone, promjenu pozadine i
+isključivanje mreže. Isti učenik ne može biti prijavljen na dva računala
+odjednom. Administratorski račun računala se ne dira. Zapisi se vide u
+izborniku **Nadzor** (admin i nastavnici kojima je to uključeno u profilu).
 
 Sve o postavljanju servera, izradi `config.json`, instalaciji na računalo i
 probi s `curl` je u **[klijent/README.md](klijent/README.md)**.

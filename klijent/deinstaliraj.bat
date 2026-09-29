@@ -1,6 +1,8 @@
 @echo off
 setlocal
-rem RCK Nadzor - uklanjanje s racunala. Pokreni KAO ADMINISTRATOR.
+rem RCK Nadzor - uklanjanje s racunala. Pokreni s administratorskog racuna
+rem (desni klik > Pokreni kao administrator). Uklanja zadatke, datoteke i
+rem ogranicenja ucenickih racuna (Task Manager, mreza, Postavke).
 
 net session >nul 2>&1
 if errorlevel 1 (
@@ -9,13 +11,10 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo Uklanjam zadatak "RCK Nadzor" ...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0zadatak.ps1" -Ukloni
-
-echo Brisem %ProgramData%\RCKNadzor ...
-if exist "%ProgramData%\RCKNadzor" rmdir /s /q "%ProgramData%\RCKNadzor"
-
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0instalacija.ps1" -Ukloni
+if errorlevel 1 (
+    echo.
+    echo GRESKA pri uklanjanju - pogledaj poruku iznad.
+)
 echo.
-echo Gotovo. Skripta koja vec radi zaustavit ce se kad se korisnik odjavi.
-echo Uvezeni certifikat ostaje u pouzdanima; ukloni ga rucno ako treba (certlm.msc).
 pause

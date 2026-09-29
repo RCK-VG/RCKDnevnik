@@ -28,7 +28,8 @@ class Command(BaseCommand):
             "serverUrl": url,
             "apiKey": settings.NADZOR_API_KEY,
             "pollSeconds": max(10, options["interval"]),
-            "reminderMinutes": 5,
+            "loginTimeoutMinutes": 2,
+            "restrictions": True,
             "skipWindowsDir": True,
         }
         self.stdout.write(json.dumps(config, indent=2, ensure_ascii=False))

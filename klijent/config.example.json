@@ -1,7 +1,8 @@
 {
-  "serverUrl": "https://192.168.1.50:8443",
+  "serverUrl": "https://alatisssvg.local:8443",
   "apiKey": "ISTI-KLJUC-KAO-NADZOR_API_KEY-NA-SERVERU",
   "pollSeconds": 60,
-  "reminderMinutes": 5,
+  "loginTimeoutMinutes": 2,
+  "restrictions": true,
   "skipWindowsDir": true
 }
