@@ -23,6 +23,7 @@ Repozitorij: https://github.com/RCK-VG/RCKDnevnik
 10. [Pokretanje automatskih testova](#10-pokretanje-automatskih-testova)
 11. [Struktura projekta](#11-struktura-projekta)
 12. [Izvan opsega ove verzije](#12-izvan-opsega-ove-verzije)
+13. [Nadzor učeničkih računala](#13-nadzor-učeničkih-računala)
 
 ---
 
@@ -385,14 +386,14 @@ docker compose logs -f web
 
 Unutar Dockera:
 ```bash
-docker compose exec web python manage.py test dnevnik
+docker compose exec web python manage.py test dnevnik nadzor
 ```
 
 Lokalno bez Dockera (ako imate Python instaliran i virtualno okruženje u
 `.venv`, kako je korišteno tijekom razvoja):
 ```bash
-.venv\Scripts\python.exe manage.py test dnevnik   # Windows
-.venv/bin/python manage.py test dnevnik           # Linux/Mac
+.venv\Scripts\python.exe manage.py test dnevnik nadzor   # Windows
+.venv/bin/python manage.py test dnevnik nadzor           # Linux/Mac
 ```
 
 Testovi pokrivaju: ovlasti (nastavnik ne može uređivati tuđe satove ni
@@ -415,11 +416,14 @@ dnevnik/             Glavna aplikacija
   imports.py         Uvoz učenika/predmeta iz CSV/Excel
   tests/             Automatski testovi
   management/commands/  seed_demo, backup_db
+nadzor/              Nadzor učeničkih računala (API za klijent + pregled)
+klijent/             Windows klijent za učenička računala (PowerShell)
 templates/           HTML predlošci (Bootstrap + HTMX + Alpine.js)
 Dockerfile           Slika za pokretanje aplikacije
 docker-compose.yml       Varijanta A (lokalna mreža)
 docker-compose.prod.yml  Varijanta B (VPS + Caddy + HTTPS)
-Caddyfile            Postavke automatskog HTTPS-a
+Caddyfile            Postavke automatskog HTTPS-a (Varijanta B)
+Caddyfile.lan        HTTPS u školskoj mreži za nadzor računala (port 8443)
 .env.example         Predložak konfiguracije (kopirati u .env)
 ```
 
@@ -431,3 +435,23 @@ Sljedeće namjerno nije uključeno u verziju 1, u skladu s dogovorenim
 opsegom: dodjela predmeta pojedinim nastavnicima, redni broj sata unutar
 dana, rad bez interneta (offline), ocjenjivanje, pristup roditeljima,
 integracija sa CARNET e-Dnevnikom, slanje automatskih obavijesti.
+
+Napomena: redni broj sata ("Sat u danu") naknadno je ipak dodan, zbog blok
+satova.
+
+---
+
+## 13. Nadzor učeničkih računala
+
+Učenička računala (Windows) pri svakoj prijavi traže razred, ime i prezime pa
+periodički javljaju instalirane i pokrenute programe, nove mape u AppData,
+nove ikone na radnoj površini i promjenu pozadine. Zapisi se vide u izborniku
+**Nadzor** (admin i nastavnici kojima je to uključeno u profilu).
+
+Sve o postavljanju servera, izradi `config.json`, instalaciji na računalo i
+probi s `curl` je u **[klijent/README.md](klijent/README.md)**.
+
+Ukratko, na Pi-ju u `.env` dodaš `NADZOR_API_KEY` i `NADZOR_HOST`, pokreneš
+`docker compose up -d --build` (uz dnevnik se pokreće i Caddy s HTTPS-om na
+portu 8443), pa na svakom računalu kao administrator pokreneš
+`klijent\instaliraj.bat`.

@@ -33,6 +33,9 @@
                 <a href="{% url 'svi_satovi' %}" class="text-light small text-decoration-none">Svi satovi</a>
                 <a href="{% url 'razredi' %}" class="text-light small text-decoration-none">Razredi</a>
                 <a href="{% url 'izvoz' %}" class="text-light small text-decoration-none">Izvoz</a>
+                {% if user.is_staff or user.is_superuser or user.profile.can_view_monitoring %}
+                <a href="{% url 'nadzor_zapisi' %}" class="text-light small text-decoration-none">Nadzor</a>
+                {% endif %}
                 <span class="text-light small">{{ user.get_full_name|default:user.username }}</span>
                 <form method="post" action="{% url 'odjava' %}" class="m-0">
                     {% csrf_token %}

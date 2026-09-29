@@ -25,3 +25,22 @@ services:
     volumes:
       - ./data:/app/data
       - ./backups:/app/backups
+
+  # HTTPS za ucenicka racunala (nadzor, klijent/): https://<NADZOR_HOST>:8443
+  # s internim certifikatom. Nastavnici i dalje mogu koristiti http://<IP>:8080.
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./Caddyfile.lan:/etc/caddy/Caddyfile
+      - caddy_lan_data:/data
+      - caddy_lan_config:/config
+    depends_on:
+      - web
+
+volumes:
+  caddy_lan_data:
+  caddy_lan_config:

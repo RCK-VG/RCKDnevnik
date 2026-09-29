@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Nadzor računala{% endblock %}
+{% block content %}
+<h1 class="h5 mb-3">Nadzor računala</h1>
+<p class="text-muted small">
+    Zapisi koje šalju učenička računala. Učenik se na računalu prijavljuje samo razredom, imenom i
+    prezimenom (bez lozinke), pa zapis pokazuje tko se <em>prijavio</em>, a ne siguran dokaz identiteta.
+</p>
+
+<form method="get" class="card card-body mb-3">
+    <div class="row g-2">
+        <div class="col-6 col-md-2">
+            <label class="form-label small">{{ form.razred.label }}</label>
+            {{ form.razred }}
+        </div>
+        <div class="col-6 col-md-3">
+            <label class="form-label small">{{ form.ucenik.label }}</label>
+            {{ form.ucenik }}
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label small">{{ form.racunalo.label }}</label>
+            {{ form.racunalo }}
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label small">{{ form.vrsta.label }}</label>
+            {{ form.vrsta }}
+        </div>
+        <div class="col-6 col-md-3">
+            <label class="form-label small">{{ form.datum_od.label }}</label>
+            {{ form.datum_od }}
+        </div>
+        <div class="col-6 col-md-3">
+            <label class="form-label small">{{ form.datum_do.label }}</label>
+            {{ form.datum_do }}
+        </div>
+    </div>
+    <div class="d-flex gap-2 mt-3">
+        <button type="submit" class="btn btn-outline-primary btn-sm">Filtriraj</button>
+        <button type="submit" name="izvoz" value="csv" class="btn btn-outline-secondary btn-sm">Izvezi CSV</button>
+        <a href="{% url 'nadzor_zapisi' %}" class="btn btn-link btn-sm">Poništi filtere</a>
+    </div>
+</form>
+
+<p class="small text-muted">Pronađeno zapisa: {{ total }}</p>
+
+<div class="table-responsive">
+    <table class="table table-sm table-striped align-middle small">
+        <thead>
+            <tr>
+                <th>Vrijeme</th>
+                <th>Razred</th>
+                <th>Učenik</th>
+                <th>Računalo</th>
+                <th>Vrsta</th>
+                <th>Detalji</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for log in page_obj %}
+            <tr>
+                <td class="text-nowrap">
+                    {{ log.received_at|date:"d.m.Y. H:i:s" }}
+                    {% if log.client_time and log.client_time|date:"d.m.Y. H:i" != log.received_at|date:"d.m.Y. H:i" %}
+                        <div class="text-muted" title="Vrijeme na računalu - zapis je stigao kasnije (npr. mreža nije radila)">na računalu: {{ log.client_time|date:"d.m.Y. H:i:s" }}</div>
+                    {% endif %}
+                </td>
+                <td>{{ log.class_name }}</td>
+                <td>{{ log.last_name }} {{ log.first_name }}</td>
+                <td>{{ log.computer_name }}</td>
+                <td>{{ log.event_type }}</td>
+                <td class="text-break">{{ log.details|linebreaksbr }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="6" class="text-muted">Nema zapisa za odabrani filter.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<nav>
+    <ul class="pagination">
+        {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?{{ querystring }}&page={{ page_obj.previous_page_number }}">Prethodna</a></li>
+        {% endif %}
+        <li class="page-item disabled"><span class="page-link">Stranica {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?{{ querystring }}&page={{ page_obj.next_page_number }}">Sljedeća</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,42 @@
+# Procesi koji se NE javljaju kao "POKRENUTA APLIKACIJA".
+# Jedan naziv po retku, bez ".exe" (moze i s njim), velika/mala slova nisu bitna.
+# Redak koji pocinje s # je komentar. Programi iz mape C:\Windows se ionako
+# preskacu (u config.json: "skipWindowsDir": true).
+#
+# Nakon izmjene ponovno pokreni instaliraj.bat na racunalu (ili kopiraj ovu
+# datoteku u C:\ProgramData\RCKNadzor kao administrator).
+
+# Pozadinski dijelovi Windowsa i Officea izvan mape C:\Windows
+msedgewebview2
+MicrosoftEdgeUpdate
+OneDrive
+FileCoAuth
+Microsoft.SharePoint
+ms-teams
+Teams
+PhoneExperienceHost
+Widgets
+WidgetService
+GameBar
+GameBarFTServer
+OfficeClickToRun
+SDXHelper
+MpDefenderCoreService
+NisSrv
+MsMpEng
+SecurityHealthSystray
+ShellExperienceHost
+StartMenuExperienceHost
+SearchApp
+TextInputHost
+LockApp
+
+# Azuriranja i upravljacki programi
+GoogleUpdate
+AdobeARM
+AdobeCollabSync
+jusched
+RtkAudUService64
+igfxEM
+NVIDIA Share
+nvcontainer

@@ -3,3 +3,8 @@
 *.sh text eol=lf
 Dockerfile text eol=lf
 Caddyfile text eol=lf
+Caddyfile.lan text eol=lf
+# Windows klijent: CRLF da cmd/PowerShell/VBScript ispravno rade
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.vbs text eol=crlf

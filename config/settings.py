@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "dnevnik",
+    "nadzor",
 ]
 
 MIDDLEWARE = [
@@ -158,6 +159,11 @@ CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "")
 BACKUP_DIR = Path(os.environ.get("BACKUP_DIR", str(BASE_DIR / "backups")))
 BACKUP_DIR.mkdir(exist_ok=True, parents=True)
 BACKUP_KEEP = int(os.environ.get("BACKUP_KEEP", "14"))
+
+# Student computer monitoring (nadzor app). Empty key = API disabled (503).
+NADZOR_API_KEY = os.environ.get("NADZOR_API_KEY", "").strip()
+NADZOR_TOKEN_DAYS = int(os.environ.get("NADZOR_TOKEN_DAYS", "7"))
+NADZOR_PRIJAVA_MAX_POKUSAJA = int(os.environ.get("NADZOR_PRIJAVA_MAX_POKUSAJA", "30"))
 
 # Do not leak personal data (names, notes) into logs - keep Django's default
 # logging (errors to console) and avoid custom request/body logging.

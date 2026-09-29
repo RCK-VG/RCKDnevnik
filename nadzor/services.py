@@ -1,0 +1,166 @@
+"""Student lookup, sessions and log storage for the computer monitoring
+module. Kept free of HTTP so it can be tested directly."""
+
+import hashlib
+import re
+import secrets
+import unicodedata
+
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+
+from dnevnik.models import SchoolClass, Student
+
+from .models import ActivityLog, ComputerSession
+
+MAX_NAME_LEN = 100
+MAX_CLASS_LEN = 20
+MAX_COMPUTER_LEN = 64
+MAX_EVENT_TYPE_LEN = 100
+MAX_DETAILS_LEN = 2000
+
+LOGIN_EVENT = "PRIJAVA"
+
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def clean_line(value, max_len):
+    """Single-line text: NFC, control chars and newlines removed, runs of
+    whitespace collapsed, trimmed and cut to max_len."""
+    text = unicodedata.normalize("NFC", str(value or ""))
+    text = _CONTROL_CHARS.sub(" ", text)
+    text = " ".join(text.split())
+    return text[:max_len]
+
+
+def clean_text(value, max_len):
+    """Multi-line text (event details): newlines/tabs kept, other control
+    characters removed."""
+    text = unicodedata.normalize("NFC", str(value or ""))
+    text = _CONTROL_CHARS.sub("", text).strip()
+    return text[:max_len]
+
+
+def normalize_name(value):
+    """Comparison key for names: case- and whitespace-insensitive, done in
+    Python because SQLite's iexact ignores case only for ASCII letters
+    ("ČOLIĆ" would not match "Čolić")."""
+    return " ".join(unicodedata.normalize("NFC", str(value or "")).split()).casefold()
+
+
+def normalize_class(value):
+    """"1.c", " 1.C ", "1 .C" all compare equal."""
+    return "".join(unicodedata.normalize("NFC", str(value or "")).split()).casefold()
+
+
+def eligible_classes():
+    """Classes of the active school year (or, if none is marked active, of
+    all non-archived years) - the only ones offered to and matched from a
+    student computer."""
+    classes = SchoolClass.objects.filter(school_year__is_active=True)
+    if not classes.exists():
+        classes = SchoolClass.objects.filter(school_year__is_archived=False)
+    return classes
+
+
+def class_names():
+    names = {c.name.strip() for c in eligible_classes()}
+    return sorted(names, key=lambda n: normalize_class(n))
+
+
+def find_students(class_name, first_name, last_name):
+    """All non-archived students matching class + first + last name.
+    Normally 0 or 1; 2+ means two students with identical names in one
+    class, which the caller must treat as ambiguous."""
+    wanted_class = normalize_class(class_name)
+    class_ids = [c.id for c in eligible_classes() if normalize_class(c.name) == wanted_class]
+    if not class_ids:
+        return []
+    wanted_first, wanted_last = normalize_name(first_name), normalize_name(last_name)
+    return [
+        s
+        for s in Student.objects.filter(school_class_id__in=class_ids, is_archived=False)
+        .select_related("school_class")
+        if normalize_name(s.first_name) == wanted_first
+        and normalize_name(s.last_name) == wanted_last
+    ]
+
+
+def hash_token(token):
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def start_session(student, computer_name):
+    """Creates a session and its PRIJAVA log; returns (session, plain token).
+    The plain token is only ever returned here - the DB keeps the hash."""
+    token = secrets.token_urlsafe(32)
+    session = ComputerSession.objects.create(
+        token_hash=hash_token(token),
+        student=student,
+        first_name=student.first_name,
+        last_name=student.last_name,
+        class_name=student.school_class.name,
+        computer_name=computer_name,
+    )
+    save_logs(session, computer_name, [{"vrsta": LOGIN_EVENT, "detalji": ""}])
+    return session, token
+
+
+def session_for_token(token):
+    """Valid session for a plain token, else None."""
+    if not token or not isinstance(token, str):
+        return None
+    session = ComputerSession.objects.filter(token_hash=hash_token(token)).first()
+    if session is None or not session.is_valid():
+        return None
+    return session
+
+
+def parse_client_time(value):
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        parsed = parse_datetime(value.strip())
+    except ValueError:
+        return None
+    if parsed is None:
+        return None
+    if timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed)
+    return parsed
+
+
+class InvalidEvent(ValueError):
+    pass
+
+
+def save_logs(session, computer_name, events):
+    """Stores events for a session. Each event is a dict with "vrsta"
+    (required), "detalji" and "vrijeme" (client ISO time, optional).
+    Raises InvalidEvent before saving anything if any event is invalid."""
+    computer = clean_line(computer_name, MAX_COMPUTER_LEN) or session.computer_name
+    search_name = normalize_name(f"{session.last_name} {session.first_name}")
+    rows = []
+    for index, event in enumerate(events, start=1):
+        if not isinstance(event, dict):
+            raise InvalidEvent(f"Zapis {index} nije objekt.")
+        event_type = clean_line(event.get("vrsta"), MAX_EVENT_TYPE_LEN)
+        if not event_type:
+            raise InvalidEvent(f"Zapis {index} nema vrstu događaja.")
+        rows.append(
+            ActivityLog(
+                session=session,
+                student_id=session.student_id,
+                first_name=session.first_name,
+                last_name=session.last_name,
+                class_name=session.class_name,
+                computer_name=computer,
+                event_type=event_type,
+                details=clean_text(event.get("detalji"), MAX_DETAILS_LEN),
+                client_time=parse_client_time(event.get("vrijeme")),
+                search_name=search_name,
+            )
+        )
+    ActivityLog.objects.bulk_create(rows)
+    ComputerSession.objects.filter(pk=session.pk).update(last_seen_at=timezone.now())
+    return len(rows)

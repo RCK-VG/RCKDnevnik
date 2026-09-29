@@ -267,6 +267,11 @@ class Profile(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile"
     )
     must_change_password = models.BooleanField(default=True)
+    # Access to the "nadzor" module (student computer activity logs). Admins
+    # always have it; for other teachers the admin ticks this box.
+    can_view_monitoring = models.BooleanField(
+        default=False, verbose_name="Smije vidjeti nadzor računala"
+    )
 
     def __str__(self):
         return f"Profil ({self.user})"

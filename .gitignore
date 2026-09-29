@@ -8,3 +8,6 @@ db.sqlite3
 /staticfiles/
 .pytest_cache/
 *.egg-info/
+# Klijent za ucenicka racunala: generirane datoteke s kljucem/certifikatom
+klijent/config.json
+klijent/*.crt

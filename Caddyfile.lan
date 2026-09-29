@@ -1,0 +1,13 @@
+# HTTPS u skolskoj mrezi (Varijanta A, Raspberry Pi) - koristi ga docker-compose.yml.
+# Caddy sam izradi vlastiti (interni) certifikat za IP adresu Pi-ja; njegov
+# korijenski certifikat instaliraj.bat uveze na ucenicka racunala.
+# Port 8443 (ne 443) da ne smeta drugom programu na Pi-ju.
+{
+	auto_https disable_redirects
+	skip_install_trust
+}
+
+https://{$NADZOR_HOST:localhost}:8443 {
+	tls internal
+	reverse_proxy web:8000
+}
