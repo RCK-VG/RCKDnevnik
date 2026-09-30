@@ -89,6 +89,8 @@ U `config.json` možeš promijeniti:
   `false` ih isključuje,
 - `logSites` (zadano `true`): bilježenje posjećenih domena (vidi 3.2);
   `false` ga isključuje,
+- `autoUpdate` (zadano `true`): samo-ažuriranje klijenta (vidi „Automatsko
+  ažuriranje" niže); `false` ga isključuje,
 - `pollSeconds` (zadano 60): koliko često se provjerava i šalje.
 
 Zatim cijelu mapu `klijent` kopiraj na USB (npr. `scp -r` na svoje računalo).
@@ -129,6 +131,43 @@ ne bilježi se ništa.
 učenički račun): ponovno pokreni `instaliraj.bat`. Zapisi koji čekaju slanje
 se ne gube. **Uklanjanje:** `deinstaliraj.bat` kao administrator (uklanja i
 ograničenja).
+
+## Automatsko ažuriranje (bez USB-a za buduće promjene)
+
+USB treba **samo prvi put**, da servis uopće dođe na računalo. Nakon toga se
+klijent ažurira sam: server nudi trenutne datoteke, a servis ih svakih pola
+sata provjeri i, ako su se promijenile, preuzme i ponovno se pokrene (za manje
+od minute). Tako ispravak skripte ili dodavanje domene/procesa u popis ne
+treba raznositi na 50 računala.
+
+**Kako objaviti promjenu** (na Pi-ju):
+
+```bash
+cd ~/dnevnik
+git pull                     # ili ručno izmijeni datoteku u klijent/
+docker compose up -d         # ako je promjena došla kroz git pull
+```
+
+Datoteke iz `klijent/` server čita kroz spoj koji je već namješten u
+`docker-compose.yml` (`./klijent:/app/klijent:ro`, samo čitanje), pa nakon
+`git pull` nije potreban `--build`. Sva računala povuku novu verziju u roku
+od pola sata (ili pri sljedećem paljenju).
+
+**Što se ažurira:** `servis.ps1`, `prozor.ps1`, `pokreni_prozor.vbs`,
+`preskoci_procese.txt`, `preskoci_domene.txt`. Svaka datoteka se provjerava
+kontrolnom sumom (SHA-256) prije zamjene; server nikad ne šalje `config.json`
+ni certifikat.
+
+**Što se NE ažurira ovako** (za to i dalje treba `instaliraj.bat` na računalu):
+- `config.json` (adresa servera, ključ, postavke) - lokalan je,
+- popis učeničkih računa i njihova ograničenja,
+- sami zadaci u Task Scheduleru.
+
+**Sigurnost:** ovo znači da server (Pi) može poslati kod koji se na računalima
+izvodi kao SYSTEM. Datoteke stižu s Pi-ja preko HTTPS-a kojem računala vjeruju,
+pa je ključno **čuvati Pi** (lozinke, ažuriranja) - kao i za certifikat (vidi
+zadnje poglavlje). Tko preuzme Pi, ionako već ima tu moć. Ako želiš zamrznuti
+verziju na nekom računalu, u njegov `config.json` stavi `"autoUpdate": false`.
 
 ## 3. Što radi na računalu
 

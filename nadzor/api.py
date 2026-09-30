@@ -77,6 +77,18 @@ def razredi(request):
     return _json({"razredi": services.class_names()})
 
 
+@require_GET
+@api_key_required
+def klijent(request):
+    """Current client files, so the service can update itself (no more USB per
+    change). Read-only: it never accepts uploads, and serves only the fixed
+    whitelist in services.CLIENT_UPDATE_FILES (never the key or certificate)."""
+    bundle = services.client_bundle()
+    if bundle is None:
+        return _error("Datoteke klijenta nisu dostupne na serveru.", 503)
+    return _json(bundle)
+
+
 @require_POST
 @api_key_required
 def prijava(request):

@@ -177,9 +177,12 @@ function Register-Tasks($Accounts) {
     # (ako radi, novi primjerak se odmah ugasi).
     $action = New-ScheduledTaskAction -Execute $ps `
         -Argument ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + (Join-Path $Baza 'servis.ps1') + '"')
+    # Ponavljanje svake minute: ako servis nije živ (pao ili se sam ugasio radi
+    # nadogradnje), sljedeća minuta ga ponovno pokrene. Ako već radi, novi
+    # primjerak odmah iziđe (mutex + MultipleInstances IgnoreNew).
     $triggers = @(
         (New-ScheduledTaskTrigger -AtStartup),
-        (New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 5))
+        (New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1))
     )
     $principal = New-ScheduledTaskPrincipal -UserId $system -LogonType ServiceAccount -RunLevel Highest
     $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `

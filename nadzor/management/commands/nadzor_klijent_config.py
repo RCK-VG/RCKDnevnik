@@ -31,6 +31,7 @@ class Command(BaseCommand):
             "loginTimeoutMinutes": 2,
             "restrictions": True,
             "logSites": True,
+            "autoUpdate": True,
             "skipWindowsDir": True,
         }
         self.stdout.write(json.dumps(config, indent=2, ensure_ascii=False))

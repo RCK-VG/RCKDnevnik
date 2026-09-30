@@ -5,5 +5,6 @@
   "loginTimeoutMinutes": 2,
   "restrictions": true,
   "logSites": true,
+  "autoUpdate": true,
   "skipWindowsDir": true
 }

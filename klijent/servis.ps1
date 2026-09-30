@@ -34,6 +34,17 @@ $ApiPrefix = '/api/nadzor/v1'
 $FastSeconds = 1
 $SendBatch = 100
 $MaxQueueLines = 20000
+$ProzorDir = Join-Path $env:ProgramData 'RCKNadzorProzor'
+
+# Kamo ide koja datoteka pri automatskom ažuriranju. Samo ova imena; ništa drugo
+# što server pošalje se ne zapisuje (config.json se NE dira - lokalan je).
+$UpdateTargets = @{
+    'servis.ps1'          = { $Baza }
+    'preskoci_procese.txt' = { $Baza }
+    'preskoci_domene.txt'  = { $Baza }
+    'prozor.ps1'           = { $ProzorDir }
+    'pokreni_prozor.vbs'   = { $ProzorDir }
+}
 
 # --------------------------------------------------------------------------
 # Općenito
@@ -75,6 +86,7 @@ function Read-Config {
     $skipWin = $true; if ($null -ne $cfg.skipWindowsDir) { $skipWin = [bool]$cfg.skipWindowsDir }
     $restrict = $true; if ($null -ne $cfg.restrictions) { $restrict = [bool]$cfg.restrictions }
     $logSites = $true; if ($null -ne $cfg.logSites) { $logSites = [bool]$cfg.logSites }
+    $autoUpdate = $true; if ($null -ne $cfg.autoUpdate) { $autoUpdate = [bool]$cfg.autoUpdate }
     [pscustomobject]@{
         ServerUrl           = ([string]$cfg.serverUrl).TrimEnd('/')
         ApiKey              = [string]$cfg.apiKey
@@ -83,6 +95,7 @@ function Read-Config {
         SkipWindowsDir      = $skipWin
         Restrictions        = $restrict
         LogSites            = $logSites
+        AutoUpdate          = $autoUpdate
     }
 }
 
@@ -700,6 +713,58 @@ function Test-Network {
 # Razgovor sa serverom u pozadini
 # --------------------------------------------------------------------------
 
+# --------------------------------------------------------------------------
+# Automatsko ažuriranje: server nudi trenutne datoteke klijenta, servis ih
+# preuzme kad se promijene i ponovno se pokrene. Tako promjene skripte ili
+# popisa domena ne treba raznositi USB-om. config.json se NE dira (lokalan je).
+# --------------------------------------------------------------------------
+
+$script:Restart = $false
+
+function Get-InstalledVersion {
+    try {
+        $f = Join-Path $Baza 'verzija.txt'
+        if (Test-Path -LiteralPath $f) { return ([System.IO.File]::ReadAllText($f, [System.Text.Encoding]::UTF8)).Trim() }
+    } catch { }
+    return ''
+}
+
+function Update-Klijent {
+    if ($Proba -or -not $script:Config.AutoUpdate) { return }
+    $r = Invoke-NadzorApi 'GET' '/klijent/' $null
+    if ($r.Status -ne 200 -or -not $r.Data -or -not $r.Data.verzija) { return }
+    $version = [string]$r.Data.verzija
+    if ($version -eq (Get-InstalledVersion)) { return }
+
+    # Sve provjeri (poznato ime + kontrolna suma) PRIJE nego išta zapišemo.
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $planned = New-Object System.Collections.ArrayList
+    foreach ($p in $r.Data.datoteke.PSObject.Properties) {
+        $name = $p.Name
+        if (-not $UpdateTargets.ContainsKey($name)) { continue }   # nepoznato ime - preskoči
+        try { $bytes = [Convert]::FromBase64String([string]$p.Value.sadrzaj) }
+        catch { Write-Log "Ažuriranje: $name nije ispravan base64 - odustajem."; return }
+        $digest = [BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-', '').ToLowerInvariant()
+        if ($digest -ne ([string]$p.Value.sha256).ToLowerInvariant()) {
+            Write-Log "Ažuriranje: kriva kontrolna suma za $name - odustajem."; return
+        }
+        $dir = & $UpdateTargets[$name]
+        [void]$planned.Add([pscustomobject]@{ Path = (Join-Path $dir $name); Bytes = $bytes })
+    }
+    if ($planned.Count -eq 0) { return }
+
+    foreach ($item in $planned) {
+        $dir = Split-Path -Parent $item.Path
+        if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+        $tmp = $item.Path + '.new'
+        [System.IO.File]::WriteAllBytes($tmp, $item.Bytes)
+        Move-Item -LiteralPath $tmp -Destination $item.Path -Force
+    }
+    [System.IO.File]::WriteAllText((Join-Path $Baza 'verzija.txt'), $version, $Utf8NoBom)
+    Write-Log "Preuzeta nova verzija klijenta, ponovno pokrećem servis."
+    $script:Restart = $true
+}
+
 function Update-Classes {
     $r = Invoke-NadzorApi 'GET' '/razredi/' $null
     if ($r.Status -eq 200 -and $r.Data) {
@@ -782,11 +847,15 @@ try {
 Load-Records
 Write-Log "Servis pokrenut na $env:COMPUTERNAME, server $($script:Config.ServerUrl), nadzire se računa: $($script:Accounts.Count)$(if ($Proba) { ' (PROBA)' })"
 
+try { Update-Klijent } catch { Write-Log "Greška (ažuriranje): $($_.Exception.Message)" }
+if ($script:Restart) { $mutex.ReleaseMutex(); return }
+
 $start = Get-Date
 $nextSlow = Get-Date
 $nextNetwork = Get-Date
 $nextClasses = Get-Date
 $nextDns = Get-Date
+$nextUpdate = (Get-Date).AddMinutes(30)
 
 while ($true) {
     try { Update-Sessions } catch { Write-Log "Greška (sesije): $($_.Exception.Message)" }
@@ -818,6 +887,14 @@ while ($true) {
             Remove-OldRecords $stillQueued
         } catch { Write-Log "Greška (slanje): $($_.Exception.Message)" }
         $nextSlow = (Get-Date).AddSeconds($script:Config.PollSeconds)
+    }
+
+    if ($now -ge $nextUpdate) {
+        try { Update-Klijent } catch { Write-Log "Greška (ažuriranje): $($_.Exception.Message)" }
+        # Nova verzija: iziđi da te ponovno pokrene zadatak (novi kod). Pusti da
+        # se red čekanja prvo pošalje (gore u $nextSlow) - zapisi se ne gube ni tako.
+        if ($script:Restart) { break }
+        $nextUpdate = (Get-Date).AddMinutes(30)
     }
 
     if ($Trajanje -gt 0 -and ((Get-Date) - $start).TotalSeconds -ge $Trajanje) { break }

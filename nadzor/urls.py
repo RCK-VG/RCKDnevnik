@@ -4,6 +4,7 @@ from . import api, views
 
 urlpatterns = [
     path("api/nadzor/v1/razredi/", api.razredi, name="nadzor_api_razredi"),
+    path("api/nadzor/v1/klijent/", api.klijent, name="nadzor_api_klijent"),
     path("api/nadzor/v1/prijava/", api.prijava, name="nadzor_api_prijava"),
     path("api/nadzor/v1/zapisi/", api.zapisi, name="nadzor_api_zapisi"),
     path("api/nadzor/v1/zivost/", api.zivost, name="nadzor_api_zivost"),

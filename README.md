@@ -458,3 +458,7 @@ Ukratko, na Pi-ju u `.env` dodaš `NADZOR_API_KEY` i `NADZOR_HOST`, pokreneš
 `docker compose up -d --build` (uz dnevnik se pokreće i Caddy s HTTPS-om na
 portu 8443), pa na svakom računalu kao administrator pokreneš
 `klijent\instaliraj.bat`.
+
+USB treba samo prvi put: kasnije se klijent ažurira sam sa servera (nakon
+`git pull` na Pi-ju sva računala povuku nove skripte i popise u roku od pola
+sata). Detalji u [klijent/README.md](klijent/README.md).

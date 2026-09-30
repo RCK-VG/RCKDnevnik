@@ -15,6 +15,9 @@ services:
     volumes:
       - ./data:/app/data
       - ./backups:/app/backups
+      # Datoteke klijenta za automatsko azuriranje racunala (samo citanje).
+      # Nakon "git pull" racunala povuku nove skripte sama, bez USB-a.
+      - ./klijent:/app/klijent:ro
 
   backup:
     build: .

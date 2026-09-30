@@ -1,11 +1,13 @@
 """Student lookup, sessions and log storage for the computer monitoring
 module. Kept free of HTTP so it can be tested directly."""
 
+import base64
 import hashlib
 import re
 import secrets
 import unicodedata
 from datetime import timedelta
+from pathlib import Path
 
 from django.conf import settings
 from django.utils import timezone
@@ -23,6 +25,40 @@ MAX_DETAILS_LEN = 2000
 
 LOGIN_EVENT = "PRIJAVA"
 LOGOUT_EVENT = "ODJAVA"
+
+# Files the server offers for client auto-update. Fixed whitelist: never serve
+# config.json (holds the key) or the certificate, and never an arbitrary path.
+# servis.ps1 + the txt lists live in RCKNadzor; the rest in RCKNadzorProzor.
+CLIENT_UPDATE_FILES = (
+    "servis.ps1",
+    "prozor.ps1",
+    "pokreni_prozor.vbs",
+    "preskoci_procese.txt",
+    "preskoci_domene.txt",
+)
+
+
+def client_bundle():
+    """The current client files as {verzija, datoteke:{name:{sha256, sadrzaj}}}.
+    'verzija' is a hash of the whole bundle, so any change flips it and clients
+    re-download; there is no version number to bump by hand. Returns None if the
+    folder is missing."""
+    folder = Path(settings.NADZOR_KLIJENT_DIR)
+    if not folder.is_dir():
+        return None
+    files = {}
+    combined = hashlib.sha256()
+    for name in CLIENT_UPDATE_FILES:
+        path = folder / name
+        if not path.is_file():
+            continue
+        raw = path.read_bytes()
+        digest = hashlib.sha256(raw).hexdigest()
+        files[name] = {"sha256": digest, "sadrzaj": base64.b64encode(raw).decode("ascii")}
+        combined.update(f"{name}:{digest}\n".encode("ascii"))
+    if not files:
+        return None
+    return {"verzija": combined.hexdigest(), "datoteke": files}
 
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
