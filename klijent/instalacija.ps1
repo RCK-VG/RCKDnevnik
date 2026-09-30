@@ -237,7 +237,7 @@ if (-not $isAdmin -and -not $SamoProvjera) { throw 'Pokreni kao administrator (d
 
 if ($Ukloni) { Uninstall; return }
 
-foreach ($f in @('servis.ps1', 'prozor.ps1', 'pokreni_prozor.vbs', 'preskoci_procese.txt', 'config.json')) {
+foreach ($f in @('servis.ps1', 'prozor.ps1', 'pokreni_prozor.vbs', 'preskoci_procese.txt', 'preskoci_domene.txt', 'config.json')) {
     if (-not (Test-Path -LiteralPath (Join-Path $Src $f))) {
         throw "Nedostaje datoteka $f u mapi $Src (config.json se radi na serveru, vidi klijent\README.md)."
     }
@@ -272,7 +272,7 @@ Say 'Kopiram datoteke i postavljam dozvole ...'
 $S = '*S-1-5-18'; $A = '*S-1-5-32-544'; $U = '*S-1-5-32-545'
 # Servis i postavke: učenici ne smiju ni čitati.
 Set-Folder $Baza @("${S}:(OI)(CI)F", "${A}:(OI)(CI)F")
-foreach ($f in @('servis.ps1', 'config.json', 'preskoci_procese.txt')) { Copy-Item -LiteralPath (Join-Path $Src $f) -Destination $Baza -Force }
+foreach ($f in @('servis.ps1', 'config.json', 'preskoci_procese.txt', 'preskoci_domene.txt')) { Copy-Item -LiteralPath (Join-Path $Src $f) -Destination $Baza -Force }
 $list = @($accounts | ForEach-Object { [ordered]@{ ime = $_.Ime; sid = $_.Sid } })
 [System.IO.File]::WriteAllText((Join-Path $Baza 'racuni.json'), (ConvertTo-Json -InputObject $list -Compress), $Utf8NoBom)
 Invoke-Native 'icacls.exe' @((Join-Path $Baza '*'), '/reset', '/T', '/C', '/Q')

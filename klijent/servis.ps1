@@ -31,7 +31,7 @@ $ErrorActionPreference = 'Stop'
 
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
 $ApiPrefix = '/api/nadzor/v1'
-$FastSeconds = 2
+$FastSeconds = 1
 $SendBatch = 100
 $MaxQueueLines = 20000
 
@@ -74,6 +74,7 @@ function Read-Config {
     $timeout = 2.0; if ($cfg.loginTimeoutMinutes) { $timeout = [Math]::Max(0.1, [double]$cfg.loginTimeoutMinutes) }
     $skipWin = $true; if ($null -ne $cfg.skipWindowsDir) { $skipWin = [bool]$cfg.skipWindowsDir }
     $restrict = $true; if ($null -ne $cfg.restrictions) { $restrict = [bool]$cfg.restrictions }
+    $logSites = $true; if ($null -ne $cfg.logSites) { $logSites = [bool]$cfg.logSites }
     [pscustomobject]@{
         ServerUrl           = ([string]$cfg.serverUrl).TrimEnd('/')
         ApiKey              = [string]$cfg.apiKey
@@ -81,6 +82,7 @@ function Read-Config {
         LoginTimeoutMinutes = $timeout
         SkipWindowsDir      = $skipWin
         Restrictions        = $restrict
+        LogSites            = $logSites
     }
 }
 
@@ -94,6 +96,20 @@ function Read-SkipList {
         }
     }
     , $set
+}
+
+function Read-DomainSkipList {
+    # Domene koje se NE javljaju kao "POSJEĆENA STRANICA" (pozadinski promet Windowsa,
+    # antivirusa, CDN-ova...). Jedan sufiks po retku, npr. "microsoft.com".
+    $list = New-Object System.Collections.ArrayList
+    $file = Join-Path $Baza 'preskoci_domene.txt'
+    if (Test-Path -LiteralPath $file) {
+        foreach ($line in [System.IO.File]::ReadAllLines($file, [System.Text.Encoding]::UTF8)) {
+            $name = ($line -replace '#.*$', '').Trim().TrimEnd('.').ToLowerInvariant()
+            if ($name) { [void]$list.Add($name) }
+        }
+    }
+    , $list
 }
 
 function Read-Accounts {
@@ -332,7 +348,7 @@ function Update-Sessions {
         $s = [pscustomobject]@{
             Key = $key; WinSid = $info.WinSid; Account = $info.Account; Sid = $info.Sid
             Profile = (Get-ProfilePath $info.Sid); RecordId = $rec.id; Deadline = $deadline
-            LoggedOff = $false; LastSeen = $now; Seen = $seen
+            LoggedOff = $false; LastSeen = $now; Seen = $seen; SeenDomains = (Get-VisitedHosts)
         }
         foreach ($name in (Get-SessionProcesses $s).Keys) { [void]$seen.Add($name) }
         $script:Sessions[$key] = $s
@@ -623,6 +639,48 @@ function Invoke-Scans {
     }
 }
 
+# --------------------------------------------------------------------------
+# Posjećene stranice (iz DNS predmemorije računala)
+#
+# Ne čita se povijest preglednika (bila bi ovisna o pregledniku i zaključana
+# dok radi), nego se gleda koje je domene računalo razriješilo - radi za svaki
+# preglednik i sve igre u pregledniku. Bilježi se domena (npr. "poki.com"), ne
+# puna adresa stranice. Domena se javi jednom po prijavi; pozadinski promet
+# (Windows, antivirus, CDN-ovi) preskače se popisom preskoci_domene.txt.
+# --------------------------------------------------------------------------
+
+function Test-SkippedDomain([string]$Name) {
+    foreach ($d in $script:SkipDomains) {
+        if ($Name -eq $d -or $Name.EndsWith('.' + $d)) { return $true }
+    }
+    return $false
+}
+
+function Get-VisitedHosts {
+    $result = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    try { $cache = @(Get-DnsClientCache -ErrorAction Stop) } catch { return $result }
+    foreach ($e in $cache) {
+        if ([int]$e.Type -ne 1 -and [int]$e.Type -ne 28) { continue }   # samo A i AAAA (posjećena imena)
+        if ([int]$e.Status -ne 0) { continue }                          # 0 = uspjeh; preskoči negativne
+        $name = ([string]$e.Entry).Trim().TrimEnd('.').ToLowerInvariant()
+        if (-not $name -or $name -notmatch '\.') { continue }
+        if ($name.EndsWith('.arpa') -or $name.EndsWith('.local')) { continue }
+        if (Test-SkippedDomain $name) { continue }
+        [void]$result.Add($name)
+    }
+    $result
+}
+
+function Invoke-DnsScan {
+    if (-not $script:Config.LogSites -or $script:Sessions.Count -eq 0) { return }
+    $hosts = Get-VisitedHosts
+    foreach ($s in @($script:Sessions.Values)) {
+        foreach ($h in $hosts) {
+            if ($s.SeenDomains.Add($h)) { Add-Event $s.RecordId 'POSJEĆENA STRANICA' $h }
+        }
+    }
+}
+
 $script:NetworkUp = $null
 
 function Test-Network {
@@ -715,6 +773,7 @@ if (-not $created) { Write-Log 'Servis već radi - izlazim.'; return }
 try {
     $script:Config = Read-Config
     $script:Skip = Read-SkipList
+    $script:SkipDomains = Read-DomainSkipList
     $script:Accounts = Read-Accounts
 } catch {
     Write-Log "Ne mogu pokrenuti servis: $($_.Exception.Message)"
@@ -727,6 +786,7 @@ $start = Get-Date
 $nextSlow = Get-Date
 $nextNetwork = Get-Date
 $nextClasses = Get-Date
+$nextDns = Get-Date
 
 while ($true) {
     try { Update-Sessions } catch { Write-Log "Greška (sesije): $($_.Exception.Message)" }
@@ -738,6 +798,11 @@ while ($true) {
     if ($now -ge $nextNetwork) {
         try { Test-Network } catch { Write-Log "Greška (mreža): $($_.Exception.Message)" }
         $nextNetwork = $now.AddSeconds(10)
+    }
+    if ($now -ge $nextDns) {
+        # Češće od ostalih provjera jer DNS predmemorija brzo istekne (TTL).
+        try { Invoke-DnsScan } catch { Write-Log "Greška (stranice): $($_.Exception.Message)" }
+        $nextDns = $now.AddSeconds(15)
     }
     if ($now -ge $nextClasses) {
         try { Update-Classes } catch { }

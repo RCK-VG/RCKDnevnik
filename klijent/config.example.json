@@ -4,5 +4,6 @@
   "pollSeconds": 60,
   "loginTimeoutMinutes": 2,
   "restrictions": true,
+  "logSites": true,
   "skipWindowsDir": true
 }

@@ -1,0 +1,99 @@
+﻿# Domene koje se NE javljaju kao "POSJEĆENA STRANICA".
+# Ovdje su pozadinske domene Windowsa, preglednika, antivirusa i CDN-ova koje
+# se stalno kontaktiraju u pozadini, pa bi zatrpale zapise. Domene stvarnih
+# stranica i igara NISU ovdje, pa se one bilježe.
+#
+# Jedan sufiks po retku. "poki.com" preskace i "poki.com" i "cdn.poki.com".
+# Redak koji pocinje s # je komentar. Velika/mala slova nisu bitna.
+# Nakon izmjene pokreni instaliraj.bat ponovno (ili kopiraj datoteku u
+# C:\ProgramData\RCKNadzor kao administrator).
+
+# Windows i Microsoft
+microsoft.com
+windows.com
+windowsupdate.com
+msftconnecttest.com
+msftncsi.com
+windows.net
+windowssearch.com
+live.com
+office.com
+office365.com
+microsoftonline.com
+msn.com
+msedge.net
+msecnd.net
+azureedge.net
+azurefd.net
+trafficmanager.net
+skype.com
+xboxlive.com
+microsoft.com.akadns.net
+
+# Preglednici (pozadinske provjere, ne stranice koje ucenik otvara)
+mozilla.net
+mozilla.org
+mozilla.com
+firefox.com
+googleusercontent.com
+gstatic.com
+googleapis.com
+google-analytics.com
+googletagmanager.com
+googlesyndication.com
+doubleclick.net
+gvt1.com
+gvt2.com
+gvt3.com
+app-measurement.com
+crashlytics.com
+
+# CDN-ovi i infrastruktura
+akamai.net
+akamaized.net
+akamaiedge.net
+akadns.net
+cloudfront.net
+cloudflare.com
+cloudflare.net
+fastly.net
+edgekey.net
+edgesuite.net
+llnwd.net
+digicert.com
+sectigo.com
+verisign.com
+ocsp.pki.goog
+symcb.com
+symcd.com
+
+# Antivirus / sigurnost
+avast.com
+avg.com
+avcdn.net
+sophos.com
+sophosxl.net
+mcafee.com
+eset.com
+kaspersky.com
+bitdefender.net
+windowsdefender.microsoft.com
+
+# Reklame i telemetrija
+doubleclick.net
+adnxs.com
+adition.com
+semasio.net
+scorecardresearch.com
+mixpanel.com
+segment.com
+amplitude.com
+mozgcp.net
+
+# Lokalno / interno
+in-addr.arpa
+ip6.arpa
+mshome.net
+docker.internal
+wpad
+isatap

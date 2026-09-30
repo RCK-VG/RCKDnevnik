@@ -446,8 +446,8 @@ satova.
 Pri prijavi na učenički račun (Windows) prozor preko cijelog zaslona traži
 razred, ime i prezime; tko se ne prijavi u 2 minute, bude odjavljen. Servis
 (radi kao SYSTEM, učenik ga ne može ugasiti) zatim javlja instalirane i
-pokrenute programe, nove mape u AppData, nove ikone, promjenu pozadine i
-isključivanje mreže. Isti učenik ne može biti prijavljen na dva računala
+pokrenute programe, nove mape u AppData, nove ikone, promjenu pozadine,
+posjećene domene (npr. stranice s igrama) i isključivanje mreže. Isti učenik ne može biti prijavljen na dva računala
 odjednom. Administratorski račun računala se ne dira. Zapisi se vide u
 izborniku **Nadzor** (admin i nastavnici kojima je to uključeno u profilu).
 

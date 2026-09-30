@@ -30,6 +30,7 @@ class Command(BaseCommand):
             "pollSeconds": max(10, options["interval"]),
             "loginTimeoutMinutes": 2,
             "restrictions": True,
+            "logSites": True,
             "skipWindowsDir": True,
         }
         self.stdout.write(json.dumps(config, indent=2, ensure_ascii=False))

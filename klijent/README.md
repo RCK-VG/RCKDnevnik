@@ -23,6 +23,7 @@ isključivanje mreže) i veže ih uz učenika iz e-Dnevnika.
 | `instalacija.ps1` | instalacija i uklanjanje (pokreću ga .bat datoteke) |
 | `instaliraj.bat` / `deinstaliraj.bat` | to pokrećeš ti, kao administrator |
 | `preskoci_procese.txt` | procesi koji se ne javljaju kao "POKRENUTA APLIKACIJA" |
+| `preskoci_domene.txt` | domene koje se ne javljaju kao "POSJEĆENA STRANICA" (pozadinski promet) |
 | `config.example.json` | primjer postavki; pravi `config.json` radi se na serveru |
 | `config.json`, `rck-ca.crt` | **generiraš ih sam** (sadrže ključ/certifikat, nisu u gitu) |
 
@@ -86,6 +87,8 @@ U `config.json` možeš promijeniti:
   prijavi odjavljuje iz Windowsa,
 - `restrictions` (zadano `true`): ograničenja učeničkog računa (vidi 3.3);
   `false` ih isključuje,
+- `logSites` (zadano `true`): bilježenje posjećenih domena (vidi 3.2);
+  `false` ga isključuje,
 - `pollSeconds` (zadano 60): koliko često se provjerava i šalje.
 
 Zatim cijelu mapu `klijent` kopiraj na USB (npr. `scp -r` na svoje računalo).
@@ -155,10 +158,27 @@ Svakih 60 sekundi servis provjerava i javlja:
 - `NOVA IKONA/PRECAC` (radna površina učenika i zajednička)
 - `PROMJENA POZADINE`
 - `POKRENUTA APLIKACIJA` (svaka aplikacija jednom po prijavi; preskaču se programi iz `C:\Windows` i iz `preskoci_procese.txt`)
+- `POSJEĆENA STRANICA` (domena koju je računalo posjetilo, npr. `poki.com`; vidi niže)
 - `MREŽA ISKLJUČENA` / `MREŽA UKLJUČENA` (provjera svakih 10 sekundi)
 
 Server sam upiše `PRIJAVA` i `ODJAVA`. Uz svaki zapis ide ime računala
 (`%COMPUTERNAME%`).
+
+**Posjećene stranice** (`POSJEĆENA STRANICA`) čitaju se iz DNS predmemorije
+računala (koje je domene računalo razriješilo), a **ne** iz povijesti
+preglednika. Zato:
+- radi za **svaki preglednik** (Chrome, Edge, Firefox...) i za sve igre u
+  pregledniku, bez ovisnosti o pregledniku,
+- bilježi se **domena** (npr. `poki.com`, `now.gg`, `coolmathgames.com`), a
+  **ne puna adresa** stranice ni sadržaj,
+- pozadinski promet Windowsa, antivirusa i CDN-ova preskače se popisom
+  `preskoci_domene.txt` (uredi ga po potrebi; nakon izmjene pokreni
+  `instaliraj.bat` ponovno),
+- domena se javi jednom po prijavi. Rijetko posjećena stranica čiji "rok
+  trajanja" (DNS TTL) istekne prije provjere može promaknuti - ovo je
+  evidencija, ne potpuni zapis prometa.
+
+Bilježenje stranica isključuje se s `"logSites": false` u `config.json`.
 
 "Novo" znači novo u odnosu na ono što je servis zapamtio za taj učenički
 račun. Pri prvoj prijavi na račun samo zapamti postojeće stanje i ništa ne
