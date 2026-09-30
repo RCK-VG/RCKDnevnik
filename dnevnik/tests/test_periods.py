@@ -228,6 +228,27 @@ class CopyAttendanceTests(TestCase):
         response = self._open_hour2()
         self.assertIsNone(response.context["previous_lesson"])
 
+    def test_previous_hour_of_a_different_subject_is_not_offered(self):
+        # Same teacher takes the class for another subject in period 1; opening
+        # period 2 of THIS subject must not offer that other subject's hour.
+        other_subject = Subject.objects.create(name="Matematika")
+        self.hour1.subject = other_subject
+        self.hour1.save(update_fields=["subject"])
+        response = self._open_hour2()
+        self.assertIsNone(response.context["previous_lesson"])
+
+    def test_copy_uses_the_same_subjects_earlier_hour_not_another(self):
+        # period 1 = other subject (absent), period 1.5 not possible; make the
+        # real same-subject previous hour and a decoy other-subject hour.
+        decoy = Subject.objects.create(name="Matematika")
+        Lesson.objects.create(
+            school_class=self.school_class, subject=decoy, teacher=self.teacher,
+            date="2026-01-15", period=1,
+        )
+        response = self._open_hour2()
+        # self.hour1 is the same subject (Praktikum) in period 1 -> the source.
+        self.assertEqual(response.context["previous_lesson"], self.hour1)
+
 
 class BlockExportTests(TestCase):
     def test_matrix_has_one_column_per_hour_with_its_own_status(self):

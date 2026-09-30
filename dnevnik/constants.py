@@ -16,7 +16,7 @@ ATTENDANCE_STATUS_CHOICES = [
 ]
 
 # Highest school hour of the day that can be entered ("Sat u danu").
-MAX_PERIOD = 10
+MAX_PERIOD = 14
 
 # Optional split of a class into groups (e.g. a practical/lab subject taught
 # to half the class at a time). Add more letters here if a school ever needs

@@ -173,13 +173,21 @@ def _note_context(note, user, can_edit_overall):
     }
 
 
-def _previous_lesson(school_class, date, period, teacher):
-    """The same teacher's closest earlier hour for this class on this day
-    (e.g. the 2nd hour of a block, when entering the 3rd) - the source for
-    the "Kopiraj prisutnost" button."""
+def _previous_lesson(school_class, subject, date, period, teacher):
+    """The same teacher's closest earlier hour of the SAME subject for this
+    class on this day (e.g. the 2nd hour of a block, when entering the 3rd) -
+    the source for the "Kopiraj prisutnost" button.
+
+    The subject must match: otherwise, when a teacher takes the class for two
+    subjects the same day, it would offer (and copy attendance from) the wrong
+    period - a different subject's hour."""
     return (
         Lesson.objects.filter(
-            school_class=school_class, date=date, teacher=teacher, period__lt=period
+            school_class=school_class,
+            subject=subject,
+            date=date,
+            teacher=teacher,
+            period__lt=period,
         )
         .select_related("subject")
         .order_by("-period")
@@ -237,11 +245,11 @@ def _render_sat_screen(
     copy_source = None
     if can_edit:
         teacher = lesson.teacher if lesson is not None else request.user
-        previous_lesson = _previous_lesson(school_class, date, period, teacher)
+        previous_lesson = _previous_lesson(school_class, subject, date, period, teacher)
         copy_id = request.GET.get("kopiraj", "")
         if copy_id.isdigit():
             copy_source = Lesson.objects.filter(
-                pk=int(copy_id), school_class=school_class, date=date
+                pk=int(copy_id), school_class=school_class, subject=subject, date=date
             ).first()
             if copy_source is not None and lesson is not None and copy_source.pk == lesson.pk:
                 copy_source = None

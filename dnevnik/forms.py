@@ -1,10 +1,16 @@
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm
+from django.db.models.functions import Collate
 from django.utils import timezone
 
 from . import constants
 from .models import SchoolClass, Subject
+
+# Teachers use Django's User model (no db_collation on its columns), so order
+# them by the Croatian collation explicitly. Students/subjects sort correctly
+# on their own (db_collation="cro" on the columns).
+TEACHER_ORDER = (Collate("last_name", "cro"), Collate("first_name", "cro"))
 
 FORMAT_CHOICES = [("xlsx", "Excel (.xlsx)"), ("csv", "CSV (za Excel, ; razdjelnik)")]
 
@@ -61,7 +67,7 @@ class LessonFilterForm(forms.Form):
     )
     nastavnik = TeacherChoiceField(
         label="Nastavnik",
-        queryset=get_user_model().objects.filter(is_active=True).order_by("last_name", "first_name"),
+        queryset=get_user_model().objects.filter(is_active=True).order_by(*TEACHER_ORDER),
         required=False,
         empty_label="Svi nastavnici",
     )
@@ -109,7 +115,7 @@ class ExportFilterForm(forms.Form):
     )
     nastavnik = TeacherChoiceField(
         label="Nastavnik",
-        queryset=get_user_model().objects.filter(is_active=True).order_by("last_name", "first_name"),
+        queryset=get_user_model().objects.filter(is_active=True).order_by(*TEACHER_ORDER),
         required=False,
         empty_label="Svi nastavnici",
     )

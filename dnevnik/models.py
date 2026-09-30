@@ -45,7 +45,7 @@ class SchoolClass(models.Model):
 
 
 class Subject(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100, unique=True, db_collation="cro")
     is_archived = models.BooleanField(default=False)
 
     class Meta:
@@ -100,8 +100,8 @@ def theory_teacher_for(school_class, subject):
 
 
 class Student(models.Model):
-    first_name = models.CharField(max_length=100, verbose_name="Ime")
-    last_name = models.CharField(max_length=100, verbose_name="Prezime")
+    first_name = models.CharField(max_length=100, verbose_name="Ime", db_collation="cro")
+    last_name = models.CharField(max_length=100, verbose_name="Prezime", db_collation="cro")
     school_class = models.ForeignKey(
         SchoolClass, on_delete=models.PROTECT, related_name="students"
     )
