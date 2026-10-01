@@ -179,6 +179,10 @@ verziju na nekom računalu, u njegov `config.json` stavi `"autoUpdate": false`.
 - Ako se učenik **ne prijavi u 2 minute**, servis ga odjavi iz Windowsa i
   zapiše `ODJAVA - NIJE SE PRIJAVIO`. To radi servis, pa pomaže i kad netko
   prozor nekako ugasi.
+- **Nakon ponovnog pokretanja računala** tražila se nova prijava (stara više
+  ne vrijedi), a **nakon buđenja iz mirovanja** (sleep) prozor se automatski
+  ponovno pojavi i traži prijavu (zapis `MIROVANJE - PONOVNA PRIJAVA`). Prozor
+  radi cijelu prijavu i sam se pokazuje/skriva po potrebi.
 - Ako upisani učenik ne postoji, prozor javi grešku i pita ponovno.
 - **Isti učenik ne može biti prijavljen na dva računala** u isto vrijeme:
   druga prijava se odbija porukom na kojem je računalu već prijavljen.
@@ -191,7 +195,8 @@ verziju na nekom računalu, u njegov `config.json` stavi `"autoUpdate": false`.
 
 ### 3.2 Što se bilježi
 
-Svakih 60 sekundi servis provjerava i javlja:
+Servis provjerava i javlja (teže provjere svakih 60 s, a zapisi se šalju na
+server svakih ~15 s, pa brzo postanu vidljivi):
 - `INSTALIRAN PROGRAM` (registry Uninstall ključevi)
 - `NOVA APLIKACIJA (AppData)` (nova mapa u AppData\Roaming, Local ili LocalLow, npr. Roblox)
 - `NOVA IKONA/PRECAC` (radna površina učenika i zajednička)

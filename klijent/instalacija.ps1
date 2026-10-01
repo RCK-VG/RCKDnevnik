@@ -191,7 +191,8 @@ function Register-Tasks($Accounts) {
     Register-ScheduledTask -TaskName $ServiceTask -Action $action -Trigger $triggers -Principal $principal `
         -Settings $settings -Description 'RCK Nadzor: bilježi aktivnost na učeničkim računima.' -Force | Out-Null
 
-    # Prozor: pri prijavi svakog učeničkog računa, pod tim računom.
+    # Prozor: pri prijavi svakog učeničkog računa, pod tim računom. Ostaje raditi
+    # cijelu prijavu (sam se pokaže/sakrije po potrebi), pa ne treba ponavljanje.
     $action = New-ScheduledTaskAction -Execute (Join-Path $env:windir 'System32\wscript.exe') `
         -Argument ('"' + (Join-Path $ProzorDir 'pokreni_prozor.vbs') + '"')
     $triggers = @($Accounts | ForEach-Object { New-ScheduledTaskTrigger -AtLogOn -User (Get-AccountName $_.Sid) })

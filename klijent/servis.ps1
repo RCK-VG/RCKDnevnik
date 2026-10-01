@@ -32,6 +32,7 @@ $ErrorActionPreference = 'Stop'
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
 $ApiPrefix = '/api/nadzor/v1'
 $FastSeconds = 1
+$SendSeconds = 15      # slanje reda čekanja na server (odvojeno od skeniranja)
 $SendBatch = 100
 $MaxQueueLines = 20000
 $ProzorDir = Join-Path $env:ProgramData 'RCKNadzorProzor'
@@ -671,7 +672,7 @@ function Test-SkippedDomain([string]$Name) {
 
 function Get-VisitedHosts {
     $result = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
-    try { $cache = @(Get-DnsClientCache -ErrorAction Stop) } catch { return $result }
+    try { $cache = @(Get-DnsClientCache -ErrorAction Stop) } catch { return , $result }
     foreach ($e in $cache) {
         if ([int]$e.Type -ne 1 -and [int]$e.Type -ne 28) { continue }   # samo A i AAAA (posjećena imena)
         if ([int]$e.Status -ne 0) { continue }                          # 0 = uspjeh; preskoči negativne
@@ -681,7 +682,9 @@ function Get-VisitedHosts {
         if (Test-SkippedDomain $name) { continue }
         [void]$result.Add($name)
     }
-    $result
+    # Unarni zarez: inače PowerShell "razmota" HashSet u obično polje (fiksne
+    # veličine), pa bi kasniji .Add() pukao ("Collection was of a fixed size").
+    , $result
 }
 
 function Invoke-DnsScan {
@@ -824,6 +827,76 @@ function Remove-OldRecords($StillQueued) {
 }
 
 # --------------------------------------------------------------------------
+# Tražiti novu prijavu nakon ponovnog pokretanja ili buđenja iz mirovanja.
+# Windows nakon ponovnog pokretanja zna dati istu sesiju isti broj, pa bi se
+# stara (još "otvorena") prijava inače ponovno iskoristila i prozor se ne bi
+# pojavio. Zato: nakon pokretanja računala zatvaramo sve otvorene prijave, a
+# nakon buđenja iz mirovanja istu prijavu zatvorimo i tražimo novu.
+# --------------------------------------------------------------------------
+
+function End-SessionRecords([string]$Reason, [string]$EventType) {
+    # Zatvori sve otvorene prijave i makni ih iz memorije da Update-Sessions
+    # napravi nove (s novim rokom i novim prozorom).
+    $any = $false
+    foreach ($s in @($script:Sessions.Values)) {
+        $rec = $script:Records[$s.RecordId]
+        if ($rec -and -not $rec.zavrsena) {
+            if ($EventType) { Add-Event $s.RecordId $EventType $Reason }
+            $rec.zavrsena = $true
+        }
+        $script:Sessions.Remove($s.Key)
+        foreach ($f in @("status-$($s.WinSid).json", "odgovor-$($s.WinSid).json")) {
+            Remove-Item -LiteralPath (Join-Path $Razmjena $f) -Force -ErrorAction SilentlyContinue
+        }
+        $any = $true
+    }
+    foreach ($rec in @($script:Records.Values)) {
+        if (-not $rec.zavrsena) { $rec.zavrsena = $true; $any = $true }
+    }
+    if ($any) { Save-Records; Write-Log $Reason }
+}
+
+function Invoke-RebootCheck {
+    $file = Join-Path $Baza 'boot.txt'
+    $now = ''
+    try { $now = [string](Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime } catch { }
+    if (-not $now) { return }
+    $prev = ''
+    try { if (Test-Path -LiteralPath $file) { $prev = ([System.IO.File]::ReadAllText($file, [System.Text.Encoding]::UTF8)).Trim() } } catch { }
+    if ($prev -and $now -ne $prev) {
+        End-SessionRecords 'Računalo je ponovno pokrenuto - tražim novu prijavu.' ''
+    }
+    try { [System.IO.File]::WriteAllText($file, $now, $Utf8NoBom) } catch { }
+}
+
+function Get-LastResumeTicks {
+    try {
+        $e = Get-WinEvent -FilterHashtable @{
+            LogName = 'System'; ProviderName = 'Microsoft-Windows-Kernel-Power'; Id = 107
+        } -MaxEvents 1 -ErrorAction Stop
+        return $e.TimeCreated.ToUniversalTime().Ticks
+    } catch { return 0 }
+}
+
+function Invoke-ResumeCheck {
+    $file = Join-Path $Baza 'resume.txt'
+    $latest = Get-LastResumeTicks
+    if ($latest -le 0) { return }
+    $prev = 0
+    try { if (Test-Path -LiteralPath $file) { $prev = [long](([System.IO.File]::ReadAllText($file, [System.Text.Encoding]::UTF8)).Trim()) } } catch { }
+    if ($prev -eq 0) {
+        # Prvi put: samo zapamti zadnje buđenje kao polazište, ne reagiraj na staro.
+        try { [System.IO.File]::WriteAllText($file, [string]$latest, $Utf8NoBom) } catch { }
+        return
+    }
+    if ($latest -le $prev) { return }
+    try { [System.IO.File]::WriteAllText($file, [string]$latest, $Utf8NoBom) } catch { }
+    if ($script:Sessions.Count -gt 0) {
+        End-SessionRecords 'Računalo se probudilo iz mirovanja - tražim ponovnu prijavu.' 'MIROVANJE - PONOVNA PRIJAVA'
+    }
+}
+
+# --------------------------------------------------------------------------
 # Glavni tok
 # --------------------------------------------------------------------------
 
@@ -847,14 +920,17 @@ try {
 Load-Records
 Write-Log "Servis pokrenut na $env:COMPUTERNAME, server $($script:Config.ServerUrl), nadzire se računa: $($script:Accounts.Count)$(if ($Proba) { ' (PROBA)' })"
 
+if (-not $Proba) { try { Invoke-RebootCheck } catch { Write-Log "Greška (pokretanje): $($_.Exception.Message)" } }
 try { Update-Klijent } catch { Write-Log "Greška (ažuriranje): $($_.Exception.Message)" }
 if ($script:Restart) { $mutex.ReleaseMutex(); return }
 
 $start = Get-Date
-$nextSlow = Get-Date
+$nextScan = Get-Date
+$nextSend = Get-Date
 $nextNetwork = Get-Date
 $nextClasses = Get-Date
 $nextDns = Get-Date
+$nextResume = Get-Date
 $nextUpdate = (Get-Date).AddMinutes(30)
 
 while ($true) {
@@ -873,12 +949,21 @@ while ($true) {
         try { Invoke-DnsScan } catch { Write-Log "Greška (stranice): $($_.Exception.Message)" }
         $nextDns = $now.AddSeconds(15)
     }
+    if (-not $Proba -and $now -ge $nextResume) {
+        try { Invoke-ResumeCheck } catch { Write-Log "Greška (mirovanje): $($_.Exception.Message)" }
+        $nextResume = $now.AddSeconds(15)
+    }
     if ($now -ge $nextClasses) {
         try { Update-Classes } catch { }
-        $nextClasses = $now.AddMinutes(10)
+        $nextClasses = $now.AddMinutes(3)
     }
-    if ($now -ge $nextSlow) {
+    if ($now -ge $nextScan) {
+        # Teže provjere (instalirani programi, AppData, ikone...) rjeđe.
         try { Invoke-Scans } catch { Write-Log "Greška (provjere): $($_.Exception.Message)" }
+        $nextScan = (Get-Date).AddSeconds($script:Config.PollSeconds)
+    }
+    if ($now -ge $nextSend) {
+        # Slanje odvojeno od skeniranja, da zapisi brže stignu na server.
         try {
             Resolve-PendingLogins
             Send-Heartbeats
@@ -886,7 +971,7 @@ while ($true) {
             $stillQueued = Send-Queue
             Remove-OldRecords $stillQueued
         } catch { Write-Log "Greška (slanje): $($_.Exception.Message)" }
-        $nextSlow = (Get-Date).AddSeconds($script:Config.PollSeconds)
+        $nextSend = (Get-Date).AddSeconds($SendSeconds)
     }
 
     if ($now -ge $nextUpdate) {
