@@ -87,6 +87,7 @@ function Read-Config {
     $skipWin = $true; if ($null -ne $cfg.skipWindowsDir) { $skipWin = [bool]$cfg.skipWindowsDir }
     $restrict = $true; if ($null -ne $cfg.restrictions) { $restrict = [bool]$cfg.restrictions }
     $logSites = $true; if ($null -ne $cfg.logSites) { $logSites = [bool]$cfg.logSites }
+    $siteRepeat = 5; if ($cfg.siteRepeatMinutes) { $siteRepeat = [Math]::Max(1, [int]$cfg.siteRepeatMinutes) }
     $autoUpdate = $true; if ($null -ne $cfg.autoUpdate) { $autoUpdate = [bool]$cfg.autoUpdate }
     [pscustomobject]@{
         ServerUrl           = ([string]$cfg.serverUrl).TrimEnd('/')
@@ -96,6 +97,7 @@ function Read-Config {
         SkipWindowsDir      = $skipWin
         Restrictions        = $restrict
         LogSites            = $logSites
+        SiteRepeatMinutes   = $siteRepeat
         AutoUpdate          = $autoUpdate
     }
 }
@@ -362,8 +364,11 @@ function Update-Sessions {
         $s = [pscustomobject]@{
             Key = $key; WinSid = $info.WinSid; Account = $info.Account; Sid = $info.Sid
             Profile = (Get-ProfilePath $info.Sid); RecordId = $rec.id; Deadline = $deadline
-            LoggedOff = $false; LastSeen = $now; Seen = $seen; SeenDomains = (Get-VisitedHosts)
+            LoggedOff = $false; LastSeen = $now; Seen = $seen; SeenDomains = @{}
         }
+        # Domene već u predmemoriji pri prijavi zapamti (ne javljaj ih odmah kao
+        # da ih je ovaj učenik upravo posjetio).
+        foreach ($d in (Get-VisitedHosts)) { $s.SeenDomains[$d] = $now }
         foreach ($name in (Get-SessionProcesses $s).Keys) { [void]$seen.Add($name) }
         $script:Sessions[$key] = $s
         if (-not $Proba) { Set-Restrictions $info.Sid $script:Config.Restrictions }
@@ -670,7 +675,27 @@ function Test-SkippedDomain([string]$Name) {
     return $false
 }
 
+# Poddomene s dvije razine (npr. "com.tr"), da osnovna domena bude "pixad.com.tr",
+# a ne "com.tr". Za ".hr", ".com" i sl. uzimamo zadnje dvije oznake.
+$TwoLevelSuffix = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+foreach ($s in @('co.uk', 'org.uk', 'ac.uk', 'gov.uk', 'com.au', 'net.au', 'org.au', 'com.br',
+        'com.tr', 'net.tr', 'org.tr', 'com.hr', 'org.hr', 'com.mx', 'com.ar', 'co.jp', 'co.nz',
+        'co.za', 'co.in', 'com.ua', 'com.cn', 'com.pl', 'org.pl', 'net.pl')) { [void]$TwoLevelSuffix.Add($s) }
+
+function Get-BaseDomain([string]$Name) {
+    # "www.roblox.com" -> "roblox.com"; "ads204.console.adtarget.com.tr" -> "adtarget.com.tr"
+    $p = $Name.Split('.')
+    if ($p.Count -le 2) { return $Name }
+    $lastTwo = $p[$p.Count - 2] + '.' + $p[$p.Count - 1]
+    if ($TwoLevelSuffix.Contains($lastTwo) -and $p.Count -ge 3) {
+        return $p[$p.Count - 3] + '.' + $lastTwo
+    }
+    return $lastTwo
+}
+
 function Get-VisitedHosts {
+    # Vraća OSNOVNE domene (bez poddomena) da popis bude čitljiv: umjesto
+    # 10 redaka *.roblox.com -> jedan "roblox.com".
     $result = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
     try { $cache = @(Get-DnsClientCache -ErrorAction Stop) } catch { return , $result }
     foreach ($e in $cache) {
@@ -679,8 +704,9 @@ function Get-VisitedHosts {
         $name = ([string]$e.Entry).Trim().TrimEnd('.').ToLowerInvariant()
         if (-not $name -or $name -notmatch '\.') { continue }
         if ($name.EndsWith('.arpa') -or $name.EndsWith('.local')) { continue }
-        if (Test-SkippedDomain $name) { continue }
-        [void]$result.Add($name)
+        $base = Get-BaseDomain $name
+        if (Test-SkippedDomain $base) { continue }
+        [void]$result.Add($base)
     }
     # Unarni zarez: inače PowerShell "razmota" HashSet u obično polje (fiksne
     # veličine), pa bi kasniji .Add() pukao ("Collection was of a fixed size").
@@ -690,29 +716,40 @@ function Get-VisitedHosts {
 function Invoke-DnsScan {
     if (-not $script:Config.LogSites -or $script:Sessions.Count -eq 0) { return }
     $hosts = Get-VisitedHosts
+    $now = Get-Date
+    $window = [TimeSpan]::FromMinutes($script:Config.SiteRepeatMinutes)
     foreach ($s in @($script:Sessions.Values)) {
         foreach ($h in $hosts) {
-            if ($s.SeenDomains.Add($h)) { Add-Event $s.RecordId 'POSJEĆENA STRANICA' $h }
+            $last = $s.SeenDomains[$h]
+            # Javi domenu ponovno ako je prošao prozor (zadano 5 min) - da se vidi
+            # i povratak na stranicu (kratke igrice koje se gase i pale).
+            if ($null -eq $last -or ($now - $last) -ge $window) {
+                Add-Event $s.RecordId 'POSJEĆENA STRANICA' $h
+                $s.SeenDomains[$h] = $now
+            }
         }
     }
 }
 
+function Set-RegValue([string]$Path, [string]$Name, $Value, [string]$Type) {
+    try {
+        if (-not (Test-Path -LiteralPath $Path)) { New-Item -Path $Path -Force | Out-Null }
+        New-ItemProperty -LiteralPath $Path -Name $Name -Value $Value -PropertyType $Type -Force | Out-Null
+    } catch { Write-Log "Politika $Path\$Name nije postavljena: $($_.Exception.Message)" }
+}
+
 function Set-BrowserDnsPolicy {
-    # Da bi se posjećene stranice uopće vidjele: Chrome i Edge inače imaju
-    # uključen "Secure DNS" (DNS preko HTTPS-a) pa imena razrješavaju sami,
-    # mimo Windowsa - tada ih DNS predmemorija računala ne vidi. Politikom to
-    # isključimo da preglednik ide preko Windowsa (primjenjuje se nakon što se
-    # preglednik ponovno pokrene).
-    $browsers = @(
-        'HKLM:\SOFTWARE\Policies\Google\Chrome',
-        'HKLM:\SOFTWARE\Policies\Microsoft\Edge'
-    )
-    foreach ($path in $browsers) {
-        try {
-            if (-not (Test-Path -LiteralPath $path)) { New-Item -Path $path -Force | Out-Null }
-            New-ItemProperty -LiteralPath $path -Name 'DnsOverHttpsMode' -Value 'off' -PropertyType String -Force | Out-Null
-        } catch { Write-Log "Secure DNS politika ($path) nije postavljena: $($_.Exception.Message)" }
+    # Da bi se posjećene stranice uopće vidjele, preglednik mora imena tražiti
+    # preko Windowsa. Chrome/Edge inače koriste (a) vlastiti DNS resolver i
+    # (b) "Secure DNS" (DoH) - oboje zaobilazi Windows. Isključimo oboje; Firefox
+    # ionako ide preko Windowsa, njemu samo gasimo DoH. Vrijedi nakon ponovnog
+    # pokretanja preglednika.
+    foreach ($path in @('HKLM:\SOFTWARE\Policies\Google\Chrome', 'HKLM:\SOFTWARE\Policies\Microsoft\Edge')) {
+        Set-RegValue $path 'DnsOverHttpsMode' 'off' 'String'
+        Set-RegValue $path 'BuiltInDnsClientEnabled' 0 'DWord'
     }
+    Set-RegValue 'HKLM:\SOFTWARE\Policies\Mozilla\Firefox\DNSOverHTTPS' 'Enabled' 0 'DWord'
+    Set-RegValue 'HKLM:\SOFTWARE\Policies\Mozilla\Firefox\DNSOverHTTPS' 'Locked' 1 'DWord'
 }
 
 $script:NetworkUp = $null

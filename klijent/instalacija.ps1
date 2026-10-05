@@ -226,9 +226,14 @@ function Uninstall {
     foreach ($d in @($Baza, $ProzorDir, $Razmjena)) {
         if (Test-Path -LiteralPath $d) { Remove-Item -LiteralPath $d -Recurse -Force }
     }
-    # Vrati "Secure DNS" u pregledniku na zadano (servis ga je bio isključio).
+    # Vrati postavke preglednika (Secure DNS / resolver) na zadano.
     foreach ($path in @('HKLM:\SOFTWARE\Policies\Google\Chrome', 'HKLM:\SOFTWARE\Policies\Microsoft\Edge')) {
-        try { Remove-ItemProperty -LiteralPath $path -Name 'DnsOverHttpsMode' -ErrorAction SilentlyContinue } catch { }
+        foreach ($name in @('DnsOverHttpsMode', 'BuiltInDnsClientEnabled')) {
+            try { Remove-ItemProperty -LiteralPath $path -Name $name -ErrorAction SilentlyContinue } catch { }
+        }
+    }
+    foreach ($name in @('Enabled', 'Locked')) {
+        try { Remove-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Policies\Mozilla\Firefox\DNSOverHTTPS' -Name $name -ErrorAction SilentlyContinue } catch { }
     }
     Say ''
     Say 'Nadzor je uklonjen s ovog računala.' 'Green'

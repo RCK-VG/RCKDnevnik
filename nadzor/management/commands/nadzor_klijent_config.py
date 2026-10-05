@@ -31,6 +31,7 @@ class Command(BaseCommand):
             "loginTimeoutMinutes": 2,
             "restrictions": True,
             "logSites": True,
+            "siteRepeatMinutes": 5,
             "autoUpdate": True,
             "skipWindowsDir": True,
         }

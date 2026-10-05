@@ -222,12 +222,21 @@ preglednika. Zato:
   trajanja" (DNS TTL) istekne prije provjere može promaknuti - ovo je
   evidencija, ne potpuni zapis prometa.
 
-Da bi se stranice iz preglednika uopće vidjele, servis **isključi "Secure DNS"
-(DNS preko HTTPS-a) u Chromeu i Edgeu** - inače preglednik razrješava imena sam,
-mimo Windowsa, pa ih nadzor ne vidi. Ta promjena vrijedi **nakon što se
-preglednik ponovno pokrene** (zatvori i otvori Chrome/Edge). Ako učenik koristi
-drugi preglednik (npr. Firefox) s uključenim Secure DNS-om, te stranice i dalje
-mogu promaknuti. Deinstalacija vraća tu postavku na zadano.
+Da bi se stranice iz preglednika uopće vidjele, servis natjera preglednik da
+imena traži **preko Windowsa**: u Chromeu i Edgeu isključi "Secure DNS" (DoH) i
+njihov vlastiti DNS resolver, a u Firefoxu DoH. Inače preglednik razrješava
+imena sam i nadzor ih ne vidi. Promjena vrijedi **nakon što se preglednik
+ponovno pokrene**. Deinstalacija vraća te postavke na zadano. (Za odmah, bez
+čekanja, postoji i `iskljuci_secure_dns.bat` - npr. za pokretanje preko Veyona.)
+
+Da popis bude čitljiv i koristan:
+- bilježi se **osnovna domena** (`roblox.com`), ne svaka poddomena posebno;
+- **reklamne i tracking domene se preskaču** (`preskoci_domene.txt` - popis
+  velikih mreža poput criteo, rubicon, pubmatic...; stabilan je, rijetko treba
+  dopunu). Jedna stranica inače povuče stotine takvih, pa bez toga zapisi budu
+  nečitljivi;
+- ista domena javlja se ponovno tek nakon `siteRepeatMinutes` (zadano 5 min),
+  da se vidi i povratak na stranicu, a da se ne ponavlja u nedogled.
 
 Bilježenje stranica isključuje se s `"logSites": false` u `config.json`.
 

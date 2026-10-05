@@ -17,11 +17,17 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
+rem Chrome i Edge: iskljuci Secure DNS (DoH) i vlastiti DNS resolver, da idu preko Windowsa.
 reg add "HKLM\SOFTWARE\Policies\Google\Chrome" /v DnsOverHttpsMode /t REG_SZ /d off /f
+reg add "HKLM\SOFTWARE\Policies\Google\Chrome" /v BuiltInDnsClientEnabled /t REG_DWORD /d 0 /f
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Edge"  /v DnsOverHttpsMode /t REG_SZ /d off /f
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Edge"  /v BuiltInDnsClientEnabled /t REG_DWORD /d 0 /f
+rem Firefox: iskljuci DoH (ionako ide preko Windowsa).
+reg add "HKLM\SOFTWARE\Policies\Mozilla\Firefox\DNSOverHTTPS" /v Enabled /t REG_DWORD /d 0 /f
+reg add "HKLM\SOFTWARE\Policies\Mozilla\Firefox\DNSOverHTTPS" /v Locked /t REG_DWORD /d 1 /f
 
 echo.
-echo Gotovo. Zatvori i ponovno otvori Chrome/Edge da promjena uhvati.
+echo Gotovo. Zatvori i ponovno otvori Chrome/Edge/Firefox da promjena uhvati.
 echo.
 rem --- Ako zelis da uhvati ODMAH, makni "rem" ispred ove dvije linije.
 rem     PAZI: zatvara otvorene preglednike SVIH korisnika na racunalu. ---
