@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Prekršaji - nedopuštene stranice{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+    <h1 class="h5 mb-0 me-2">Nedopuštene stranice (prekršaji)</h1>
+    <a href="{% url 'nadzor_zapisi' %}" class="btn btn-sm btn-outline-secondary">Zapisi</a>
+    <a href="{% url 'nadzor_prekrsaji' %}" class="btn btn-sm btn-danger">Prekršaji</a>
+    <a href="{% url 'nadzor_blokirane' %}" class="btn btn-sm btn-outline-secondary">Uredi popis</a>
+</div>
+
+{% if nema_popisa %}
+<div class="alert alert-info">
+    Popis nedopuštenih stranica je prazan. Prvo ga ispuni na stranici
+    <a href="{% url 'nadzor_blokirane' %}">Uredi popis nedopuštenih</a>, pa će se ovdje prikazati prekršaji.
+</div>
+{% else %}
+<p class="text-muted small">Učenici koji su posjetili neku domenu s popisa nedopuštenih, poredani po broju posjeta.</p>
+
+<form method="get" class="card card-body mb-3">
+    <div class="row g-2">
+        <div class="col-6 col-md-3">
+            <label class="form-label small">{{ form.razred.label }}</label>
+            {{ form.razred }}
+        </div>
+        <div class="col-6 col-md-3">
+            <label class="form-label small">{{ form.datum_od.label }}</label>
+            {{ form.datum_od }}
+        </div>
+        <div class="col-6 col-md-3">
+            <label class="form-label small">{{ form.datum_do.label }}</label>
+            {{ form.datum_do }}
+        </div>
+    </div>
+    <div class="d-flex gap-2 mt-3">
+        <button type="submit" class="btn btn-outline-primary btn-sm">Filtriraj</button>
+        <button type="submit" name="izvoz" value="csv" class="btn btn-outline-secondary btn-sm">Izvezi CSV</button>
+        <a href="{% url 'nadzor_prekrsaji' %}" class="btn btn-link btn-sm">Poništi filtere</a>
+    </div>
+</form>
+
+<p class="small text-muted">Ukupno prekršaja: {{ total }} ({{ rows|length }} učenika)</p>
+<div class="table-responsive">
+    <table class="table table-sm table-striped align-middle small">
+        <thead>
+            <tr><th>Učenik</th><th>Razred</th><th>Broj</th><th>Zadnji put</th><th>Domene</th></tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+            <tr>
+                <td>
+                    {% if r.identified %}{{ r.last_name }} {{ r.first_name }}
+                    {% else %}<span class="badge bg-warning text-dark">neidentificiran</span> {{ r.last_name }} {{ r.first_name }}{% endif %}
+                </td>
+                <td>{{ r.class_name }}</td>
+                <td><span class="badge bg-danger">{{ r.count }}</span></td>
+                <td class="text-nowrap">{{ r.last|date:"d.m.Y. H:i" }}</td>
+                <td class="text-break">{{ r.domains|join:", " }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="5" class="text-muted">Nema prekršaja za odabrani filter.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

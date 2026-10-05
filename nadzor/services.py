@@ -15,7 +15,7 @@ from django.utils.dateparse import parse_datetime
 
 from dnevnik.models import SchoolClass, Student
 
-from .models import ActivityLog, ComputerSession
+from .models import ActivityLog, BlockedSite, ComputerSession
 
 MAX_NAME_LEN = 100
 MAX_CLASS_LEN = 20
@@ -25,6 +25,42 @@ MAX_DETAILS_LEN = 2000
 
 LOGIN_EVENT = "PRIJAVA"
 LOGOUT_EVENT = "ODJAVA"
+SITE_EVENT = "POSJEĆENA STRANICA"  # event_type the client sends for a visited domain
+
+
+def normalize_pattern(value):
+    """Tidy a disallowed-site entry: lowercase, drop scheme/path and a leading
+    www., so "https://www.Roblox.com/games" becomes "roblox.com"."""
+    v = (value or "").strip().lower()
+    v = re.sub(r"^[a-z]+://", "", v)
+    v = v.split("/")[0].split("?")[0].strip()
+    if v.startswith("www."):
+        v = v[4:]
+    return v
+
+
+def active_block_patterns():
+    return [p for p in BlockedSite.objects.filter(is_active=True).values_list("pattern", flat=True) if p]
+
+
+def domain_is_blocked(domain, patterns=None):
+    d = (domain or "").lower()
+    pats = active_block_patterns() if patterns is None else patterns
+    return any(p in d for p in pats)
+
+
+def blocked_logs_q(patterns=None):
+    """Q selecting visited-site logs that match any disallowed term. Returns a
+    never-matching Q when the list is empty."""
+    from django.db.models import Q
+
+    pats = active_block_patterns() if patterns is None else patterns
+    if not pats:
+        return Q(pk__in=[])
+    terms = Q()
+    for p in pats:
+        terms |= Q(details__icontains=p)
+    return Q(event_type=SITE_EVENT) & terms
 
 # Files the server offers for client auto-update. Fixed whitelist: never serve
 # config.json (holds the key) or the certificate, and never an arbitrary path.

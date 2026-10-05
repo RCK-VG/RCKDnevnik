@@ -451,6 +451,12 @@ posjećene domene (npr. stranice s igrama) i isključivanje mreže. Isti učenik
 odjednom. Administratorski račun računala se ne dira. Zapisi se vide u
 izborniku **Nadzor** (admin i nastavnici kojima je to uključeno u profilu).
 
+U **Nadzoru** možeš voditi i popis **nedopuštenih stranica** (domena ili izraza
+koje sam biraš, npr. `roblox.com`, `tiktok`). Posjet takvoj stranici se
+automatski označi, a stranica **Prekršaji** pokazuje po učeniku tko ih je i
+koliko posjetio (uz izvoz u CSV). Ništa se ne blokira na računalu - samo se
+izdvaja u pregledu.
+
 Sve o postavljanju servera, izradi `config.json`, instalaciji na računalo i
 probi s `curl` je u **[klijent/README.md](klijent/README.md)**.
 

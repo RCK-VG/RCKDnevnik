@@ -1,7 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Nadzor računala{% endblock %}
 {% block content %}
-<h1 class="h5 mb-3">Nadzor računala</h1>
+<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+    <h1 class="h5 mb-0 me-2">Nadzor računala</h1>
+    <a href="{% url 'nadzor_zapisi' %}" class="btn btn-sm btn-secondary">Zapisi</a>
+    <a href="{% url 'nadzor_prekrsaji' %}" class="btn btn-sm btn-outline-danger">Nedopuštene stranice (prekršaji)</a>
+    <a href="{% url 'nadzor_blokirane' %}" class="btn btn-sm btn-outline-secondary">Uredi popis nedopuštenih</a>
+</div>
 <p class="text-muted small">
     Zapisi koje šalju učenička računala. Učenik se na računalu prijavljuje samo razredom, imenom i
     prezimenom (bez lozinke), pa zapis pokazuje tko se <em>prijavio</em>, a ne siguran dokaz identiteta.
@@ -34,6 +39,12 @@
             {{ form.datum_do }}
         </div>
     </div>
+    {% if has_blocklist %}
+    <div class="form-check mt-2">
+        {{ form.samo_nedopustene }}
+        <label class="form-check-label small" for="{{ form.samo_nedopustene.id_for_label }}">{{ form.samo_nedopustene.label }}</label>
+    </div>
+    {% endif %}
     <div class="d-flex gap-2 mt-3">
         <button type="submit" class="btn btn-outline-primary btn-sm">Filtriraj</button>
         <button type="submit" name="izvoz" value="csv" class="btn btn-outline-secondary btn-sm">Izvezi CSV</button>
@@ -73,7 +84,9 @@
                 </td>
                 <td>{{ log.computer_name }}</td>
                 <td>{{ log.event_type }}</td>
-                <td class="text-break">{{ log.details|linebreaksbr }}</td>
+                <td class="text-break">
+                    {% if log.blocked %}<span class="badge bg-danger">nedopušteno</span> {% endif %}{{ log.details|linebreaksbr }}
+                </td>
             </tr>
         {% empty %}
             <tr><td colspan="6" class="text-muted">Nema zapisa za odabrani filter.</td></tr>

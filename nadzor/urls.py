@@ -10,4 +10,6 @@ urlpatterns = [
     path("api/nadzor/v1/zivost/", api.zivost, name="nadzor_api_zivost"),
     path("api/nadzor/v1/odjava/", api.odjava, name="nadzor_api_odjava"),
     path("nadzor/", views.zapisi, name="nadzor_zapisi"),
+    path("nadzor/nedopustene/", views.blokirane, name="nadzor_blokirane"),
+    path("nadzor/prekrsaji/", views.prekrsaji, name="nadzor_prekrsaji"),
 ]

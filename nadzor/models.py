@@ -49,6 +49,34 @@ class ComputerSession(models.Model):
         return now < self.created_at + timedelta(days=settings.NADZOR_TOKEN_DAYS)
 
 
+class BlockedSite(models.Model):
+    """A domain or keyword the teacher marks as not allowed. A visited-site log
+    counts as a violation when its domain contains one of these (active) terms.
+    Nothing is blocked on the computer - this only flags/reports in the app."""
+
+    pattern = models.CharField(
+        max_length=255,
+        unique=True,
+        verbose_name="Domena ili izraz",
+        help_text="npr. roblox.com, tiktok, poki.com - poklapa se ako domena sadrži ovaj izraz.",
+    )
+    category = models.CharField(max_length=50, blank=True, verbose_name="Kategorija")
+    is_active = models.BooleanField(default=True, verbose_name="Aktivno")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["pattern"]
+        verbose_name = "Nedopuštena stranica"
+        verbose_name_plural = "Nedopuštene stranice"
+
+    def __str__(self):
+        return self.pattern
+
+    def save(self, *args, **kwargs):
+        self.pattern = (self.pattern or "").strip().lower()
+        super().save(*args, **kwargs)
+
+
 class ActivityLog(models.Model):
     """One event reported by a student computer.
 

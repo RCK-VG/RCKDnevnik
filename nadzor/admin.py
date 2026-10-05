@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ActivityLog, ComputerSession
+from .models import ActivityLog, BlockedSite, ComputerSession
 
 
 class ReadOnlyAdmin(admin.ModelAdmin):
@@ -29,6 +29,14 @@ class ActivityLogAdmin(ReadOnlyAdmin):
     list_filter = ("event_type", "class_name", "computer_name", "received_at")
     search_fields = ("last_name", "first_name", "computer_name", "details")
     date_hierarchy = "received_at"
+
+
+@admin.register(BlockedSite)
+class BlockedSiteAdmin(admin.ModelAdmin):
+    list_display = ("pattern", "category", "is_active", "created_at")
+    list_filter = ("is_active", "category")
+    search_fields = ("pattern", "category")
+    list_editable = ("is_active",)
 
 
 @admin.register(ComputerSession)

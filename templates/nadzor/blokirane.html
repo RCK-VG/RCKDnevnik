@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Nedopuštene stranice{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+    <h1 class="h5 mb-0 me-2">Nedopuštene stranice</h1>
+    <a href="{% url 'nadzor_zapisi' %}" class="btn btn-sm btn-outline-secondary">Zapisi</a>
+    <a href="{% url 'nadzor_prekrsaji' %}" class="btn btn-sm btn-outline-danger">Prekršaji</a>
+    <a href="{% url 'nadzor_blokirane' %}" class="btn btn-sm btn-secondary">Uredi popis</a>
+</div>
+
+<p class="text-muted small">
+    Popis domena ili izraza koje smatraš nedopuštenima. Posjet se označi kao prekršaj ako
+    domena <em>sadrži</em> neki od ovih izraza. Primjeri: <code>roblox.com</code>, <code>tiktok</code>,
+    <code>poki.com</code>. Ovo ništa ne blokira na računalu - samo izdvaja u pregledu
+    <a href="{% url 'nadzor_prekrsaji' %}">Prekršaji</a>.
+</p>
+
+<div class="row g-3">
+    <div class="col-12 col-md-6">
+        <form method="post" class="card card-body">
+            {% csrf_token %}
+            <input type="hidden" name="akcija" value="dodaj">
+            <label class="form-label small">Domena ili izraz</label>
+            <input type="text" name="izraz" class="form-control mb-2" placeholder="npr. roblox.com" required>
+            <label class="form-label small">Kategorija (neobavezno)</label>
+            <input type="text" name="kategorija" class="form-control mb-3" placeholder="npr. igre">
+            <button type="submit" class="btn btn-primary btn-sm">Dodaj</button>
+        </form>
+    </div>
+    <div class="col-12 col-md-6">
+        <form method="post" enctype="multipart/form-data" class="card card-body">
+            {% csrf_token %}
+            <input type="hidden" name="akcija" value="uvoz">
+            <label class="form-label small">Uvoz iz CSV-a</label>
+            <input type="file" name="datoteka" accept=".csv,.txt" class="form-control mb-2" required>
+            <p class="text-muted small mb-2">Jedan izraz po retku (prvi stupac domena, drugi neobavezno kategorija).</p>
+            <button type="submit" class="btn btn-outline-primary btn-sm">Uvezi</button>
+        </form>
+    </div>
+</div>
+
+<p class="small text-muted mt-3">Na popisu: {{ stavke|length }}</p>
+<div class="table-responsive">
+    <table class="table table-sm table-striped align-middle small">
+        <thead>
+            <tr><th>Domena / izraz</th><th>Kategorija</th><th>Aktivno</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for s in stavke %}
+            <tr>
+                <td class="text-break">{{ s.pattern }}</td>
+                <td>{{ s.category }}</td>
+                <td>{% if s.is_active %}da{% else %}<span class="text-muted">ne</span>{% endif %}</td>
+                <td class="text-end">
+                    <form method="post" class="m-0" onsubmit="return confirm('Obrisati {{ s.pattern }}?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="akcija" value="obrisi">
+                        <input type="hidden" name="id" value="{{ s.id }}">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">Obriši</button>
+                    </form>
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="4" class="text-muted">Popis je prazan - dodaj prvu domenu gore.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
