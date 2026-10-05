@@ -293,3 +293,27 @@ yellowblue.io
 yieldlab.net
 yieldmo.com
 ymmobi.com
+
+# Pozadinske domene lab/sistemskog softvera (licenciranje, telemetrija)
+# koje se javljaju na gotovo svim racunalima.
+autodesk.com
+siemens.com
+irai.com
+irai2.com
+amd.com
+ati.com
+exp-tas.com
+bing.com
+bing.net
+sharepoint.com
+office.net
+azure.net
+cloud.microsoft
+static.microsoft
+fastly-edge.com
+withgoogle.com
+footprintdns.com
+quovadisglobal.com
+cookieyes.com
+cdn-cookieyes.com
+googleadservices.com

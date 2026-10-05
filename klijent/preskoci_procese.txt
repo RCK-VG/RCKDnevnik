@@ -1,4 +1,4 @@
-# Procesi koji se NE javljaju kao "POKRENUTA APLIKACIJA".
+﻿# Procesi koji se NE javljaju kao "POKRENUTA APLIKACIJA".
 # Jedan naziv po retku, bez ".exe" (moze i s njim), velika/mala slova nisu bitna.
 # Redak koji pocinje s # je komentar. Programi iz mape C:\Windows se ionako
 # preskacu (u config.json: "skipWindowsDir": true).
@@ -40,3 +40,37 @@ RtkAudUService64
 igfxEM
 NVIDIA Share
 nvcontainer
+
+# Pozadinski servisi lab/sistemskog softvera (Autodesk, Siemens, AMD,
+# SolidWorks, Microsoft 365, OneDrive, Veyon) - auto-pokrecu se svuda.
+GenuineService
+AdskAccessCore
+AdskAccessUIHost
+AdskAccessService
+AdskIdentityManager
+ADPClientService
+StoreDesktopExtension
+CrossDeviceService
+TiaAdminNotifier
+UMTrayIcon
+s7wnsmgx
+CodeMeterCC
+CCUCSurrogate
+RadeonSoftware
+AMDRSServ
+AMDRSSrcExt
+amdow
+IntelGraphicsSoftware
+sldworks_fs
+MicrosoftStartFeedProvider
+M365Copilot
+m365copilot_autostarter
+HxTsr
+OneDrive.Sync.Service
+OneDriveStandaloneUpdater
+OneDriveLauncher
+identity_helper
+WindowsPackageManagerServer
+veyon-worker
+veyon-server
+veyon-configurator
