@@ -222,6 +222,13 @@ preglednika. Zato:
   trajanja" (DNS TTL) istekne prije provjere može promaknuti - ovo je
   evidencija, ne potpuni zapis prometa.
 
+Da bi se stranice iz preglednika uopće vidjele, servis **isključi "Secure DNS"
+(DNS preko HTTPS-a) u Chromeu i Edgeu** - inače preglednik razrješava imena sam,
+mimo Windowsa, pa ih nadzor ne vidi. Ta promjena vrijedi **nakon što se
+preglednik ponovno pokrene** (zatvori i otvori Chrome/Edge). Ako učenik koristi
+drugi preglednik (npr. Firefox) s uključenim Secure DNS-om, te stranice i dalje
+mogu promaknuti. Deinstalacija vraća tu postavku na zadano.
+
 Bilježenje stranica isključuje se s `"logSites": false` u `config.json`.
 
 "Novo" znači novo u odnosu na ono što je servis zapamtio za taj učenički

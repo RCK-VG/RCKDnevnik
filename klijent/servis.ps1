@@ -697,6 +697,24 @@ function Invoke-DnsScan {
     }
 }
 
+function Set-BrowserDnsPolicy {
+    # Da bi se posjećene stranice uopće vidjele: Chrome i Edge inače imaju
+    # uključen "Secure DNS" (DNS preko HTTPS-a) pa imena razrješavaju sami,
+    # mimo Windowsa - tada ih DNS predmemorija računala ne vidi. Politikom to
+    # isključimo da preglednik ide preko Windowsa (primjenjuje se nakon što se
+    # preglednik ponovno pokrene).
+    $browsers = @(
+        'HKLM:\SOFTWARE\Policies\Google\Chrome',
+        'HKLM:\SOFTWARE\Policies\Microsoft\Edge'
+    )
+    foreach ($path in $browsers) {
+        try {
+            if (-not (Test-Path -LiteralPath $path)) { New-Item -Path $path -Force | Out-Null }
+            New-ItemProperty -LiteralPath $path -Name 'DnsOverHttpsMode' -Value 'off' -PropertyType String -Force | Out-Null
+        } catch { Write-Log "Secure DNS politika ($path) nije postavljena: $($_.Exception.Message)" }
+    }
+}
+
 $script:NetworkUp = $null
 
 function Test-Network {
@@ -921,6 +939,7 @@ Load-Records
 Write-Log "Servis pokrenut na $env:COMPUTERNAME, server $($script:Config.ServerUrl), nadzire se računa: $($script:Accounts.Count)$(if ($Proba) { ' (PROBA)' })"
 
 if (-not $Proba) { try { Invoke-RebootCheck } catch { Write-Log "Greška (pokretanje): $($_.Exception.Message)" } }
+if (-not $Proba -and $script:Config.LogSites) { try { Set-BrowserDnsPolicy } catch { Write-Log "Greška (DNS politika): $($_.Exception.Message)" } }
 try { Update-Klijent } catch { Write-Log "Greška (ažuriranje): $($_.Exception.Message)" }
 if ($script:Restart) { $mutex.ReleaseMutex(); return }
 

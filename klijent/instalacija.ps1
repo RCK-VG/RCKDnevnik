@@ -226,6 +226,10 @@ function Uninstall {
     foreach ($d in @($Baza, $ProzorDir, $Razmjena)) {
         if (Test-Path -LiteralPath $d) { Remove-Item -LiteralPath $d -Recurse -Force }
     }
+    # Vrati "Secure DNS" u pregledniku na zadano (servis ga je bio isključio).
+    foreach ($path in @('HKLM:\SOFTWARE\Policies\Google\Chrome', 'HKLM:\SOFTWARE\Policies\Microsoft\Edge')) {
+        try { Remove-ItemProperty -LiteralPath $path -Name 'DnsOverHttpsMode' -ErrorAction SilentlyContinue } catch { }
+    }
     Say ''
     Say 'Nadzor je uklonjen s ovog računala.' 'Green'
     Say 'Certifikat servera ostaje među pouzdanima (ne smeta). Ukloniti ga se može u certmgr.msc.'
