@@ -231,14 +231,26 @@ ponovno pokrene**. Deinstalacija vraća te postavke na zadano. (Za odmah, bez
 
 Da popis bude čitljiv i koristan:
 - bilježi se **osnovna domena** (`roblox.com`), ne svaka poddomena posebno;
-- **reklamne i tracking domene se preskaču** (`preskoci_domene.txt` - popis
-  velikih mreža poput criteo, rubicon, pubmatic...; stabilan je, rijetko treba
-  dopunu). Jedna stranica inače povuče stotine takvih, pa bez toga zapisi budu
-  nečitljivi;
+- **reklamne i tracking domene se preskaču.** Dva popisa: `preskoci_domene.txt`
+  (manji, u gitu - tu dodaješ vlastite iznimke) i `reklamne_domene.txt` (veliki
+  gotovi popis koji se **sam preuzima na Pi-ju**; vidi niže). Jedna stranica
+  inače povuče stotine takvih, pa bez toga zapisi budu nečitljivi;
 - ista domena javlja se ponovno tek nakon `siteRepeatMinutes` (zadano 5 min),
   da se vidi i povratak na stranicu, a da se ne ponavlja u nedogled.
 
 Bilježenje stranica isključuje se s `"logSites": false` u `config.json`.
+
+**Veliki popis reklama (`reklamne_domene.txt`)** preuzima se gotov s interneta
+pa ga ne moraš održavati. Osvježava ga `backup` usluga **svaki dan sama**; ručno:
+
+```bash
+docker compose exec web python manage.py nadzor_reklame
+```
+
+Popis se sprema u `klijent/` na Pi-ju (nije u gitu) i računala ga povuku
+auto-updateom. Poklapanje ide po **punom imenu** (npr. `ads.nekistie.com` se
+preskače, ali obična `nekistie.com` i dalje prolazi), pa se prave stranice ne
+gube. Za drugi izvor: `... nadzor_reklame --url <adresa popisa>`.
 
 "Novo" znači novo u odnosu na ono što je servis zapamtio za taj učenički
 račun. Pri prvoj prijavi na račun samo zapamti postojeće stanje i ništa ne

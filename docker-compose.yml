@@ -24,10 +24,14 @@ services:
     restart: unless-stopped
     env_file: .env
     entrypoint: []
-    command: sh -c "while true; do python manage.py backup_db; sleep 86400; done"
+    # Dnevno: sigurnosna kopija baze + osvježavanje popisa reklamnih domena
+    # (reklamne_domene.txt) koji računala povuku auto-updateom.
+    command: sh -c "while true; do python manage.py backup_db; python manage.py nadzor_reklame || true; sleep 86400; done"
     volumes:
       - ./data:/app/data
       - ./backups:/app/backups
+      # Zapis u ./klijent (rw) da upiše reklamne_domene.txt; web ga čita (ro).
+      - ./klijent:/app/klijent
 
   # HTTPS za ucenicka racunala (nadzor, klijent/): https://<NADZOR_HOST>:8443
   # s internim certifikatom. Nastavnici i dalje mogu koristiti http://<IP>:8080.

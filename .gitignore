@@ -11,3 +11,4 @@ db.sqlite3
 # Klijent za ucenicka racunala: generirane datoteke s kljucem/certifikatom
 klijent/config.json
 klijent/*.crt
+klijent/reklamne_domene.txt

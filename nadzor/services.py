@@ -71,6 +71,7 @@ CLIENT_UPDATE_FILES = (
     "pokreni_prozor.vbs",
     "preskoci_procese.txt",
     "preskoci_domene.txt",
+    "reklamne_domene.txt",  # veliki popis reklama (manage.py nadzor_reklame); nije u gitu
 )
 
 

@@ -43,6 +43,7 @@ $UpdateTargets = @{
     'servis.ps1'          = { $Baza }
     'preskoci_procese.txt' = { $Baza }
     'preskoci_domene.txt'  = { $Baza }
+    'reklamne_domene.txt'  = { $Baza }
     'prozor.ps1'           = { $ProzorDir }
     'pokreni_prozor.vbs'   = { $ProzorDir }
 }
@@ -126,6 +127,20 @@ function Read-DomainSkipList {
         }
     }
     , $list
+}
+
+function Read-AdDomains {
+    # Veliki gotovi popis reklamnih/tracking domena (reklamne_domene.txt, radi ga
+    # server naredbom nadzor_reklame). HashSet za brzu provjeru po punom imenu.
+    $set = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    $file = Join-Path $Baza 'reklamne_domene.txt'
+    if (Test-Path -LiteralPath $file) {
+        foreach ($line in [System.IO.File]::ReadAllLines($file, [System.Text.Encoding]::UTF8)) {
+            $n = ($line -replace '#.*$', '').Trim().TrimEnd('.')
+            if ($n) { [void]$set.Add($n) }
+        }
+    }
+    , $set
 }
 
 function Read-Accounts {
@@ -669,6 +684,14 @@ function Invoke-Scans {
 # --------------------------------------------------------------------------
 
 function Test-SkippedDomain([string]$Name) {
+    # Provjera po PUNOM imenu (prije skupljanja na osnovnu domenu), da radi i
+    # veliki popis koji blokira pojedine poddomene (npr. ads.example.com).
+    if ($script:AdDomains.Count -gt 0) {
+        $parts = $Name.Split('.')
+        for ($i = 0; $i -lt $parts.Count - 1; $i++) {
+            if ($script:AdDomains.Contains([string]::Join('.', $parts[$i..($parts.Count - 1)]))) { return $true }
+        }
+    }
     foreach ($d in $script:SkipDomains) {
         if ($Name -eq $d -or $Name.EndsWith('.' + $d)) { return $true }
     }
@@ -704,9 +727,9 @@ function Get-VisitedHosts {
         $name = ([string]$e.Entry).Trim().TrimEnd('.').ToLowerInvariant()
         if (-not $name -or $name -notmatch '\.') { continue }
         if ($name.EndsWith('.arpa') -or $name.EndsWith('.local')) { continue }
-        $base = Get-BaseDomain $name
-        if (Test-SkippedDomain $base) { continue }
-        [void]$result.Add($base)
+        if (Test-SkippedDomain $name) { continue }   # provjera po punom imenu
+        [void]$result.Add((Get-BaseDomain $name))    # tek onda skupi na osnovnu domenu
+
     }
     # Unarni zarez: inače PowerShell "razmota" HashSet u obično polje (fiksne
     # veličine), pa bi kasniji .Add() pukao ("Collection was of a fixed size").
@@ -967,6 +990,7 @@ try {
     $script:Config = Read-Config
     $script:Skip = Read-SkipList
     $script:SkipDomains = Read-DomainSkipList
+    $script:AdDomains = Read-AdDomains
     $script:Accounts = Read-Accounts
 } catch {
     Write-Log "Ne mogu pokrenuti servis: $($_.Exception.Message)"
