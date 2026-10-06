@@ -50,6 +50,7 @@ def _choices(field, empty_label):
 
 
 class LogFilterForm(forms.Form):
+    ucionica = forms.ChoiceField(label="Učionica", required=False)
     razred = forms.ChoiceField(label="Razred", required=False)
     ucenik = forms.CharField(label="Ime ili prezime", required=False, max_length=100)
     racunalo = forms.ChoiceField(label="Računalo", required=False)
@@ -64,6 +65,7 @@ class LogFilterForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["ucionica"].choices = services.classroom_choices()
         self.fields["razred"].choices = _choices("class_name", "Svi razredi")
         self.fields["racunalo"].choices = _choices("computer_name", "Sva računala")
         self.fields["vrsta"].choices = _choices("event_type", "Sve vrste")
@@ -74,6 +76,8 @@ def _filtered_logs(form):
     if not form.is_valid():
         return logs
     data = form.cleaned_data
+    if data.get("ucionica"):
+        logs = services.filter_by_classroom(logs, data["ucionica"])
     if data["razred"]:
         logs = logs.filter(class_name=data["razred"])
     if data["racunalo"]:
@@ -210,6 +214,7 @@ def _import_blocked_csv(uploaded):
 
 
 class ViolationFilterForm(forms.Form):
+    ucionica = forms.ChoiceField(label="Učionica", required=False)
     razred = forms.ChoiceField(label="Razred", required=False)
     datum_od = forms.DateField(
         label="Od datuma", required=False, widget=forms.DateInput(attrs={"type": "date"})
@@ -220,6 +225,7 @@ class ViolationFilterForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["ucionica"].choices = services.classroom_choices()
         self.fields["razred"].choices = _choices("class_name", "Svi razredi")
 
 
@@ -227,6 +233,8 @@ def _violation_logs(form):
     logs = ActivityLog.objects.filter(services.blocked_logs_q())
     if form.is_valid():
         data = form.cleaned_data
+        if data.get("ucionica"):
+            logs = services.filter_by_classroom(logs, data["ucionica"])
         if data["razred"]:
             logs = logs.filter(class_name=data["razred"])
         tz = timezone.get_current_timezone()

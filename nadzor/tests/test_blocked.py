@@ -89,3 +89,12 @@ class BlockedViewTests(ApiTestCase):
         ActivityLog.objects.create(computer_name="PC1", event_type=SITE, details="www.roblox.com")
         response = self.client.get(reverse("nadzor_zapisi"))
         self.assertContains(response, "nedopušteno")
+
+    def test_classroom_filter_matches_computer_prefix(self):
+        for comp in ("ROBOTIKA07", "PIH6", "CADCAM03"):
+            ActivityLog.objects.create(computer_name=comp, event_type="PRIJAVA")
+        page = self.client.get(reverse("nadzor_zapisi"), {"ucionica": "robotika"})
+        comps = {log.computer_name for log in page.context["page_obj"]}
+        self.assertEqual(comps, {"ROBOTIKA07"})
+        page = self.client.get(reverse("nadzor_zapisi"), {"ucionica": "cadcam"})
+        self.assertEqual({log.computer_name for log in page.context["page_obj"]}, {"CADCAM03"})

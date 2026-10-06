@@ -28,6 +28,31 @@ LOGOUT_EVENT = "ODJAVA"
 SITE_EVENT = "POSJEĆENA STRANICA"  # event_type the client sends for a visited domain
 
 
+# Učionice se prepoznaju po početku naziva računala (npr. ROBOTIKA07, PIH6,
+# CADCAM03). Ako se računala negdje zovu drukčije, dopuni prefikse ovdje.
+CLASSROOMS = [
+    ("robotika", "Robotika", ("ROBOTIKA",)),
+    ("pih", "PiH", ("PIH",)),
+    ("cadcam", "CAD/CAM", ("CADCAM", "CAD")),
+]
+
+
+def classroom_choices():
+    return [("", "Sve učionice")] + [(key, label) for key, label, _ in CLASSROOMS]
+
+
+def filter_by_classroom(logs, key):
+    from django.db.models import Q
+
+    for k, _label, prefixes in CLASSROOMS:
+        if k == key:
+            q = Q()
+            for p in prefixes:
+                q |= Q(computer_name__istartswith=p)
+            return logs.filter(q)
+    return logs
+
+
 def normalize_pattern(value):
     """Tidy a disallowed-site entry: lowercase, drop scheme/path and a leading
     www., so "https://www.Roblox.com/games" becomes "roblox.com"."""
