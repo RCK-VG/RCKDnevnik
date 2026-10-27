@@ -142,11 +142,19 @@ def clean_text(value, max_len):
     return text[:max_len]
 
 
+# Letters that do not decompose under NFD (no separate combining mark), so we
+# fold them by hand. č/ć/š/ž and most others decompose automatically below.
+_DIACRITIC_MAP = str.maketrans({"đ": "d", "Đ": "D", "ð": "d", "ł": "l", "Ł": "L", "ø": "o", "Ø": "O"})
+
+
 def normalize_name(value):
-    """Comparison key for names: case- and whitespace-insensitive, done in
-    Python because SQLite's iexact ignores case only for ASCII letters
-    ("ČOLIĆ" would not match "Čolić")."""
-    return " ".join(unicodedata.normalize("NFC", str(value or "")).split()).casefold()
+    """Comparison key for names: case-, whitespace- AND diacritic-insensitive,
+    so "Ascic" matches "Aščić" - students rarely type č/ć/š/ž/đ. Done in Python
+    because SQLite compares only ASCII case-insensitively."""
+    text = unicodedata.normalize("NFC", str(value or "")).translate(_DIACRITIC_MAP)
+    text = unicodedata.normalize("NFD", text)
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    return " ".join(text.split()).casefold()
 
 
 def normalize_class(value):

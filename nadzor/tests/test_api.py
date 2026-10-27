@@ -240,3 +240,17 @@ class LogTests(ApiTestCase):
 
     def test_get_not_allowed(self):
         self.assertEqual(self.get("nadzor_api_zapisi").status_code, 405)
+
+
+class DiacriticLoginTests(ApiTestCase):
+    def test_login_without_diacritics_matches(self):
+        self.assertEqual(self.login(prezime="Colic").status_code, 200)
+        self.assertEqual(
+            self.login(racunalo="PC2", ime="Ana Marija", prezime="Durasin").status_code, 200
+        )
+
+    def test_login_with_diacritics_still_matches(self):
+        self.assertEqual(self.login(prezime="Čolić").status_code, 200)
+
+    def test_wrong_base_letters_still_404(self):
+        self.assertEqual(self.login(prezime="Xolix").status_code, 404)
